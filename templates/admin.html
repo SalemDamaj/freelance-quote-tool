@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Panel - Whish Payments</title>
+    <style>
+        body { font-family: sans-serif; background: #f4f6f9; padding: 40px; }
+        .card { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 800px; margin: 0 auto; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background: #333; color: white; }
+        .btn-approve { background: #27ae60; color: white; border: none; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-weight: bold; }
+        .approved { color: #27ae60; font-weight: bold; }
+        .pending { color: #e67e22; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>🛠️ Admin Panel - Whish Payment Verification</h2>
+    <a href="/">← Back to Dashboard</a>
+    <hr>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <p style="color: green; font-weight: bold;">{{ message }}</p>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Username</th>
+                <th>Whish Ref #</th>
+                <th>Amount</th>
+                <th>Date</th>
+                <th>Status</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in payments %}
+            <tr>
+                <td>#{{ p[0] }}</td>
+                <td><strong>{{ p[2] }}</strong></td>
+                <td><code>{{ p[3] }}</code></td>
+                <td>{{ p[4] }}</td>
+                <td>{{ p[6] }}</td>
+                <td>
+                    {% if p[5] == 'APPROVED' %}
+                        <span class="approved">APPROVED</span>
+                    {% else %}
+                        <span class="pending">PENDING</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if p[5] == 'PENDING' %}
+                        <a href="/admin/approve/{{ p[0] }}" class="btn-approve">Approve & Upgrade</a>
+                    {% else %}
+                        ✅ Done
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+</body>
+</html>

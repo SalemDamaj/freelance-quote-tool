@@ -3,25 +3,33 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from fpdf import FPDF
 import io
 import sqlite3
+from datetime import datetime
 
 app = Flask(__name__)
 app.secret_key = "super_secret_saas_key_change_in_production"
+
+# --- YOUR WHISH MONEY DETAILS ---
+YOUR_WHISH_PHONE = "+961 70 041 203"  # 👈 REPLACE WITH YOUR REAL WHISH PHONE NUMBER
+YOUR_WHISH_NAME = "Salem Damaj"        # 👈 REPLACE WITH YOUR WHISH ACCOUNT NAME
+PRO_PLAN_PRICE = "$10.00 Fresh USD"
 
 # --- DATABASE SETUP ---
 def init_db():
     conn = sqlite3.connect("quotes.db")
     cursor = conn.cursor()
     
-    # Users table
+    # Users table (added is_pro column)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL
+            password TEXT NOT NULL,
+            is_pro INTEGER DEFAULT 0,
+            is_admin INTEGER DEFAULT 0
         )
     ''')
     
-    # Quotes table linked to user_id
+    # Quotes table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS quotes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -34,12 +42,41 @@ def init_db():
             FOREIGN KEY (user_id) REFERENCES users (id)
         )
     ''')
+
+    # Whish Payments Table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS payments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            username TEXT NOT NULL,
+            whish_ref TEXT NOT NULL,
+            amount TEXT NOT NULL,
+            status TEXT DEFAULT 'PENDING',
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+    ''')
+
+    # Create default Admin account if not exists
+    cursor.execute("SELECT * FROM users WHERE username = 'admin'")
+    if not cursor.fetchone():
+        admin_pw = generate_password_hash("admin123")  # Change password after first login!
+        cursor.execute("INSERT INTO users (username, password, is_pro, is_admin) VALUES ('admin', ?, 1, 1)", (admin_pw,))
+
     conn.commit()
     conn.close()
 
 init_db()
 
-# --- HELPER DATABASE FUNCTIONS ---
+# --- DATABASE HELPERS ---
+def get_user_by_id(user_id):
+    conn = sqlite3.connect("quotes.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, username, is_pro, is_admin FROM users WHERE id = ?", (user_id,))
+    user = cursor.fetchone()
+    conn.close()
+    return user
+
 def save_quote_to_db(user_id, client, gross, expenses, tax, take_home):
     conn = sqlite3.connect("quotes.db")
     cursor = conn.cursor()
@@ -73,7 +110,7 @@ def register():
         conn.close()
         flash("Registration successful! Please log in.", "success")
     except sqlite3.IntegrityError:
-        flash("Username already exists! Choose another.", "danger")
+        flash("Username already exists!", "danger")
 
     return redirect(url_for("home"))
 
@@ -100,16 +137,85 @@ def login():
 @app.route("/logout")
 def logout():
     session.clear()
-    flash("You have been logged out.", "info")
+    flash("Logged out successfully.", "info")
     return redirect(url_for("home"))
 
-# --- MAIN DASHBOARD ROUTE ---
+# --- WHISH MONEY PAYMENT SUBMISSION ---
+@app.route("/submit_whish_payment", methods=["POST"])
+def submit_whish_payment():
+    if "user_id" not in session:
+        return redirect(url_for("home"))
+
+    whish_ref = request.form.get("whish_ref").strip()
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
+
+    conn = sqlite3.connect("quotes.db")
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO payments (user_id, username, whish_ref, amount, created_at)
+        VALUES (?, ?, ?, ?, ?)
+    ''', (session["user_id"], session["username"], whish_ref, PRO_PLAN_PRICE, now_str))
+    conn.commit()
+    conn.close()
+
+    flash("Payment Reference Submitted! We are verifying your Whish transfer.", "info")
+    return redirect(url_for("home"))
+
+# --- ADMIN PANEL & APPROVALS ---
+@app.route("/admin")
+def admin_panel():
+    if "user_id" not in session:
+        return redirect(url_for("home"))
+    
+    current_user = get_user_by_id(session["user_id"])
+    if not current_user or current_user[3] != 1:  # Check if admin
+        flash("Access Denied! Admin eyes only.", "danger")
+        return redirect(url_for("home"))
+
+    conn = sqlite3.connect("quotes.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, user_id, username, whish_ref, amount, status, created_at FROM payments ORDER BY id DESC")
+    all_payments = cursor.fetchall()
+    conn.close()
+
+    return render_template("admin.html", payments=all_payments)
+
+@app.route("/admin/approve/<int:payment_id>")
+def approve_payment(payment_id):
+    if "user_id" not in session:
+        return redirect(url_for("home"))
+    
+    current_user = get_user_by_id(session["user_id"])
+    if not current_user or current_user[3] != 1:
+        return redirect(url_for("home"))
+
+    conn = sqlite3.connect("quotes.db")
+    cursor = conn.cursor()
+    
+    # Get user_id for this payment
+    cursor.execute("SELECT user_id FROM payments WHERE id = ?", (payment_id,))
+    pay = cursor.fetchone()
+    if pay:
+        user_to_upgrade = pay[0]
+        # Update payment status
+        cursor.execute("UPDATE payments SET status = 'APPROVED' WHERE id = ?", (payment_id,))
+        # Upgrade user to Pro
+        cursor.execute("UPDATE users SET is_pro = 1 WHERE id = ?", (user_to_upgrade,))
+        conn.commit()
+        flash(f"Payment #{payment_id} Approved! User is now PRO 🎉", "success")
+
+    conn.close()
+    return redirect(url_for("admin_panel"))
+
+# --- MAIN DASHBOARD ---
 @app.route("/", methods=["GET", "POST"])
 def home():
     result = None
     user_quotes = []
+    user_info = None
 
     if "user_id" in session:
+        user_info = get_user_by_id(session["user_id"])
         user_quotes = get_user_quotes(session["user_id"])
 
         if request.method == "POST":
@@ -136,14 +242,30 @@ def home():
                 "take_home": take_home_str
             }
 
-            # Save quote under logged-in user's ID
             save_quote_to_db(session["user_id"], client_name, gross_str, expenses_str, tax_str, take_home_str)
             user_quotes = get_user_quotes(session["user_id"])
 
-    return render_template("index.html", result=result, history=user_quotes)
+    return render_template(
+        "index.html",
+        result=result,
+        history=user_quotes,
+        user=user_info,
+        whish_phone=YOUR_WHISH_PHONE,
+        whish_name=YOUR_WHISH_NAME,
+        price=PRO_PLAN_PRICE
+    )
 
 @app.route("/download_pdf", methods=["POST"])
 def download_pdf():
+    if "user_id" not in session:
+        flash("Please log in to download PDFs.", "danger")
+        return redirect(url_for("home"))
+
+    user_info = get_user_by_id(session["user_id"])
+    if not user_info or user_info[2] != 1:  # Check is_pro
+        flash("PDF Export is a PRO Feature! Upgrade via Whish Money below.", "danger")
+        return redirect(url_for("home"))
+
     client = request.form.get("client")
     gross = request.form.get("gross")
     expenses = request.form.get("expenses")
@@ -157,7 +279,7 @@ def download_pdf():
     
     pdf.set_font("Helvetica", size=10)
     pdf.set_text_color(120, 120, 120)
-    pdf.cell(0, 6, txt="Generated via Freelance Quote Tool", ln=True, align="C")
+    pdf.cell(0, 6, txt="Generated via Freelance Quote Tool Pro", ln=True, align="C")
     pdf.ln(6)
 
     pdf.set_draw_color(200, 200, 200)
