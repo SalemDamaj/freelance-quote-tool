@@ -21,7 +21,6 @@
         .stat-card { border-left: 4px solid #0d6efd; }
         html[dir="rtl"] .stat-card { border-left: none; border-right: 4px solid #0d6efd; }
         .btn-custom { padding: 10px 20px; font-weight: 600; border-radius: 8px; }
-        .whish-alert { background: #fff5f5; border: 2px solid #dc3545; border-radius: 12px; }
         .hero-section { background: linear-gradient(135deg, #ffffff 0%, #eef2f7 100%); border-radius: 16px; padding: 60px 30px; }
     </style>
 </head>
@@ -51,6 +50,10 @@
                         <span class="badge bg-warning text-dark ms-1">{{ t.free_badge }}</span>
                     {% endif %}
                 </span>
+
+                {% if user and user[2] == 0 %}
+                    <a href="/upgrade" class="btn btn-sm btn-danger px-3"><i class="fa-solid fa-bolt me-1"></i>{{ t.nav_upgrade }}</a>
+                {% endif %}
 
                 {% if user and user[3] == 1 %}
                     <a href="/admin" class="btn btn-sm btn-primary"><i class="fa-solid fa-user-shield me-1"></i>{{ t.admin_link }}</a>
@@ -159,27 +162,15 @@
         </div>
     </div>
 
-    <!-- WHISH MONEY UPGRADE NOTICE -->
+    <!-- PRO UPGRADE BANNER FOR FREE USERS -->
     {% if user and user[2] == 0 %}
-    <div class="card p-4 mb-4 whish-alert">
-        <h4 class="text-danger fw-bold"><i class="fa-solid fa-bolt me-2"></i>{{ t.whish_title }}</h4>
-        <p class="text-secondary">{{ t.whish_desc }}</p>
-        <hr>
-        <div class="row">
-            <div class="col-md-6 mb-3">
-                <h6>Step 1: Send <strong>{{ price }}</strong> via Whish Money:</h6>
-                <ul class="list-unstyled bg-white p-3 rounded border">
-                    <li><i class="fa-solid fa-phone text-danger me-2"></i><strong>Whish Phone:</strong> <code>{{ whish_phone }}</code></li>
-                    <li><i class="fa-solid fa-user text-danger me-2"></i><strong>Account Name:</strong> {{ whish_name }}</li>
-                </ul>
+    <div class="card p-3 mb-4 bg-light border-warning">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                <h5 class="fw-bold mb-1 text-dark"><i class="fa-solid fa-bolt text-danger me-2"></i>{{ t.upgrade_banner_title }}</h5>
+                <p class="text-muted mb-0 small">{{ t.upgrade_banner_sub }}</p>
             </div>
-            <div class="col-md-6">
-                <h6>Step 2: Enter Transaction Reference #:</h6>
-                <form action="/submit_whish_payment" method="POST">
-                    <input type="text" name="whish_ref" class="form-control mb-2" placeholder="{{ t.whish_ref_ph }}" required>
-                    <button type="submit" class="btn btn-danger w-100"><i class="fa-solid fa-paper-plane me-1"></i>{{ t.whish_submit }}</button>
-                </form>
-            </div>
+            <a href="/upgrade" class="btn btn-danger btn-custom text-nowrap"><i class="fa-solid fa-gem me-1"></i>{{ t.nav_upgrade }}</a>
         </div>
     </div>
     {% endif %}
@@ -251,8 +242,9 @@
                             <button type="submit" class="btn btn-success w-100 btn-custom"><i class="fa-solid fa-file-pdf me-2"></i>{{ t.download_pdf_btn }}</button>
                         </form>
                         {% else %}
-                        <div class="alert alert-warning text-center mb-0" role="alert">
-                            <i class="fa-solid fa-lock me-2"></i>{{ t.pdf_locked }}
+                        <div class="alert alert-warning text-center mb-0 d-flex justify-content-between align-items-center" role="alert">
+                            <span><i class="fa-solid fa-lock me-2"></i>{{ t.pdf_locked }}</span>
+                            <a href="/upgrade" class="btn btn-sm btn-danger text-nowrap ms-2">{{ t.nav_upgrade }}</a>
                         </div>
                         {% endif %}
                     </div>

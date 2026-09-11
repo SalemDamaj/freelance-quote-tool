@@ -2,21 +2,20 @@ from flask import Flask, render_template, request, redirect, url_for, session, s
 from werkzeug.security import generate_password_hash, check_password_hash
 from fpdf import FPDF
 import io
-import importlib
 import os
 import sqlite3
 from datetime import datetime
 
 try:
-    psycopg2 = importlib.import_module("psycopg2")
+    import psycopg2
 except ImportError:
     psycopg2 = None
 
 app = Flask(__name__)
 app.secret_key = "super_secret_saas_key_change_in_production"
 
-YOUR_WHISH_PHONE = "+961 70 041 203"  # 👈 Change to your phone number
-YOUR_WHISH_NAME = "Salem Damaj"        # 👈 Change to your name
+YOUR_WHISH_PHONE = "+961 70 000 000"  # 👈 Replace with your phone number
+YOUR_WHISH_NAME = "Salem Damaj"        # 👈 Replace with your name
 PRO_PLAN_PRICE = "$10.00 Fresh USD"
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
@@ -35,12 +34,13 @@ TRANSLATIONS = {
         "register": "Create Account",
         "login_btn": "Log In",
         "register_btn": "Create Account",
+        "nav_upgrade": "Upgrade to PRO",
         "username": "Username",
         "password": "Password",
         "have_account": "Already have an account?",
         "no_account": "Don't have an account?",
         "whish_title": "Upgrade to PRO via Whish Money",
-        "whish_desc": "Unlock Unlimited PDF Downloads and official client quotes!",
+        "whish_desc": "Unlock Unlimited PDF Downloads and official client quotes export!",
         "whish_step1": "Send $10.00 Fresh USD via Whish Money App to:",
         "whish_step2": "Enter your Whish Transfer Reference # below:",
         "whish_ref_ph": "e.g. Transaction Ref #",
@@ -57,7 +57,7 @@ TRANSLATIONS = {
         "tax_label": "Estimated Tax (20%)",
         "takehome_label": "Net Take-Home",
         "download_pdf_btn": "Download PDF Quote",
-        "pdf_locked": "PDF Downloads locked. Upgrade to PRO via Whish Money above!",
+        "pdf_locked": "PDF Downloads locked. Click Upgrade to PRO above!",
         "history_title": "Your Saved Quotes",
         "no_history": "No quotes generated yet.",
         "th_client": "Client / Project",
@@ -68,7 +68,10 @@ TRANSLATIONS = {
         "th_action": "Actions",
         "stat_total_quotes": "Total Quotes",
         "stat_total_revenue": "Total Estimated Revenue",
-        "stat_account_status": "Account Status"
+        "stat_account_status": "Account Status",
+        "upgrade_banner_title": "Unlock Branded PDF Quote Exports",
+        "upgrade_banner_sub": "Upgrade your account to PRO via Whish Money for instant PDF export access.",
+        "back_to_dash": "Back to Dashboard"
     },
     "ar": {
         "app_title": "تسعير المشاريع 🇱🇧",
@@ -83,6 +86,7 @@ TRANSLATIONS = {
         "register": "حساب جديد",
         "login_btn": "تسجيل الدخول",
         "register_btn": "إنشاء الحساب",
+        "nav_upgrade": "الترقية إلى PRO",
         "username": "اسم المستخدم",
         "password": "كلمة المرور",
         "have_account": "لديك حساب بالفعل؟",
@@ -105,7 +109,7 @@ TRANSLATIONS = {
         "tax_label": "الضريبة التقديرية (20%)",
         "takehome_label": "الربح الصافي",
         "download_pdf_btn": "تحميل عرض السعر PDF",
-        "pdf_locked": "تحميل الـ PDF مقفل. قم بالترقية عبر Whish Money أعلاه!",
+        "pdf_locked": "تحميل الـ PDF مقفل. اضغط على الترقية إلى PRO أعلاه!",
         "history_title": "سجل العروض المحفوظة",
         "no_history": "لا توجد عروض محفوظة حتى الآن.",
         "th_client": "العميل / المشروع",
@@ -116,7 +120,10 @@ TRANSLATIONS = {
         "th_action": "الإجراءات",
         "stat_total_quotes": "إجمالي العروض",
         "stat_total_revenue": "إجمالي الإيرادات المتوقعة",
-        "stat_account_status": "حالة الحساب"
+        "stat_account_status": "حالة الحساب",
+        "upgrade_banner_title": "افتح صلاحية تصدير عروض الأسعار PDF",
+        "upgrade_banner_sub": "قم بترقية حسابك إلى PRO عبر Whish Money للحصول على صلاحية تحميل الـ PDF.",
+        "back_to_dash": "العودة للوحة التحكم"
     }
 }
 
@@ -231,7 +238,31 @@ def delete_quote(quote_id):
     flash("Quote deleted successfully.", "info")
     return redirect(url_for("home"))
 
-# --- DEDICATED LOGIN ROUTE ---
+# --- DEDICATED UPGRADE / PAYMENT PAGE ROUTE ---
+@app.route("/upgrade")
+def upgrade():
+    if "user_id" not in session:
+        flash("Please log in to upgrade your account.", "info")
+        return redirect(url_for("login"))
+
+    user_info = get_user_by_id(session["user_id"])
+    if user_info and user_info[2] == 1:
+        flash("You are already a PRO member!", "success")
+        return redirect(url_for("home"))
+
+    lang = session.get("lang", "en")
+    t = TRANSLATIONS.get(lang, TRANSLATIONS["en"])
+
+    return render_template(
+        "upgrade.html",
+        user=user_info,
+        whish_phone=YOUR_WHISH_PHONE,
+        whish_name=YOUR_WHISH_NAME,
+        price=PRO_PLAN_PRICE,
+        t=t,
+        lang=lang
+    )
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if "user_id" in session:
@@ -259,7 +290,6 @@ def login():
 
     return render_template("login.html", t=t, lang=lang)
 
-# --- DEDICATED REGISTER ROUTE ---
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if "user_id" in session:
@@ -428,7 +458,7 @@ def download_pdf():
     user_info = get_user_by_id(session["user_id"])
     if not user_info or user_info[2] != 1:
         flash("PDF Export is a PRO Feature!", "danger")
-        return redirect(url_for("home"))
+        return redirect(url_for("upgrade"))
 
     client = request.form.get("client")
     gross = request.form.get("gross")

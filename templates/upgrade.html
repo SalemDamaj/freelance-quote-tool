@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}" dir="{{ 'rtl' if lang == 'ar' else 'ltr' }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ t.whish_title }} - {{ t.app_title }}</title>
+    
+    {% if lang == 'ar' %}
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.rtl.min.css">
+    {% else %}
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+    {% endif %}
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <style>
+        body { background-color: #f4f6f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; min-height: 100vh; }
+        .card { border: none; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        .whish-card { border-top: 5px solid #dc3545; }
+        .btn-custom { padding: 12px; font-weight: 600; border-radius: 8px; }
+    </style>
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm mb-4">
+    <div class="container">
+        <a class="navbar-brand fs-4 fw-bold text-primary" href="/"><i class="fa-solid me-2"></i>{{ t.app_title }}</a>
+        
+        <div class="d-flex align-items-center gap-2">
+            <a href="/toggle_language" class="btn btn-outline-primary btn-sm rounded-pill px-3">
+                {% if lang == 'en' %} 🇱🇧 العربية {% else %} 🇬🇧 English {% endif %}
+            </a>
+            <a href="/" class="btn btn-outline-secondary btn-sm"><i class="fa-solid fa-arrow-left me-1"></i>{{ t.back_to_dash }}</a>
+        </div>
+    </div>
+</nav>
+
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-7">
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+              {% if messages %}
+                {% for category, message in messages %}
+                  <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                  </div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+
+            <div class="card p-4 whish-card">
+                <div class="text-center mb-4">
+                    <span class="badge bg-danger fs-6 mb-2"><i class="fa-solid fa-bolt me-1"></i>PRO UPGRADE</span>
+                    <h3 class="fw-bold text-dark">{{ t.whish_title }}</h3>
+                    <p class="text-muted">{{ t.whish_desc }}</p>
+                </div>
+
+                <hr class="mb-4">
+
+                <div class="row">
+                    <div class="col-md-6 mb-4">
+                        <div class="p-3 bg-light rounded border h-100">
+                            <h6 class="fw-bold text-danger mb-3"><i class="fa-solid fa-circle-1 me-2"></i>Step 1: Send Payment</h6>
+                            <p class="small text-muted mb-2">{{ t.whish_step1 }}</p>
+                            
+                            <div class="bg-white p-3 rounded border">
+                                <div class="mb-2">
+                                    <small class="text-muted d-block">Amount:</small>
+                                    <strong class="fs-5 text-success">{{ price }}</strong>
+                                </div>
+                                <div class="mb-2">
+                                    <small class="text-muted d-block">Whish Phone Number:</small>
+                                    <code class="fs-6 text-danger fw-bold">{{ whish_phone }}</code>
+                                </div>
+                                <div>
+                                    <small class="text-muted d-block">Account Name:</small>
+                                    <strong>{{ whish_name }}</strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6 mb-4">
+                        <div class="p-3 bg-light rounded border h-100">
+                            <h6 class="fw-bold text-danger mb-3"><i class="fa-solid fa-circle-2 me-2"></i>Step 2: Submit Reference #</h6>
+                            <p class="small text-muted mb-3">{{ t.whish_step2 }}</p>
+
+                            <form action="/submit_whish_payment" method="POST">
+                                <div class="mb-3">
+                                    <input type="text" name="whish_ref" class="form-control form-control-lg" placeholder="{{ t.whish_ref_ph }}" required>
+                                </div>
+                                <button type="submit" class="btn btn-danger w-100 btn-custom mt-2">
+                                    <i class="fa-solid fa-paper-plane me-2"></i>{{ t.whish_submit }}
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="text-center mt-3">
+                    <a href="/" class="text-secondary text-decoration-none small"><i class="fa-solid fa-arrow-left me-1"></i>{{ t.back_to_dash }}</a>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
