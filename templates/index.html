@@ -5,14 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ t.app_title }}</title>
     
-    <!-- Bootstrap 5 CSS (Dynamic Standard / RTL) -->
     {% if lang == 'ar' %}
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.rtl.min.css">
     {% else %}
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
     {% endif %}
 
-    <!-- FontAwesome 6 Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
     <style>
@@ -24,6 +22,7 @@
         html[dir="rtl"] .stat-card { border-left: none; border-right: 4px solid #0d6efd; }
         .btn-custom { padding: 10px 20px; font-weight: 600; border-radius: 8px; }
         .whish-alert { background: #fff5f5; border: 2px solid #dc3545; border-radius: 12px; }
+        .hero-section { background: linear-gradient(135deg, #ffffff 0%, #eef2f7 100%); border-radius: 16px; padding: 60px 30px; }
     </style>
 </head>
 <body>
@@ -58,6 +57,9 @@
                 {% endif %}
 
                 <a href="/logout" class="btn btn-sm btn-outline-danger"><i class="fa-solid fa-right-from-bracket"></i></a>
+            {% else %}
+                <a href="/login" class="btn btn-sm btn-outline-primary px-3 ms-2">{{ t.login }}</a>
+                <a href="/register" class="btn btn-sm btn-primary px-3">{{ t.register }}</a>
             {% endif %}
         </div>
     </div>
@@ -79,39 +81,33 @@
 
     {% if not session.get('user_id') %}
 
-    <!-- VISITORS LOGIN / REGISTER -->
-    <div class="row justify-content-center my-5">
-        <div class="col-md-5 mb-4">
-            <div class="card p-4">
-                <h4 class="text-center mb-4"><i class="fa-solid fa-right-to-bracket text-primary me-2"></i>{{ t.login }}</h4>
-                <form action="/login" method="POST">
-                    <div class="mb-3">
-                        <label class="form-label">{{ t.username }}</label>
-                        <input type="text" name="username" class="form-control" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">{{ t.password }}</label>
-                        <input type="password" name="password" class="form-control" required>
-                    </div>
-                    <button type="submit" class="btn btn-primary w-100 btn-custom mt-2">{{ t.login_btn }}</button>
-                </form>
+    <!-- LANDING HERO PAGE FOR VISITORS -->
+    <div class="hero-section text-center my-4 shadow-sm">
+        <div class="max-w-700 mx-auto">
+            <h1 class="display-5 fw-bold mb-3 text-dark">{{ t.hero_title }}</h1>
+            <p class="lead text-secondary mb-4 col-md-8 mx-auto">{{ t.hero_sub }}</p>
+            
+            <div class="d-flex justify-content-center gap-3">
+                <a href="/register" class="btn btn-primary btn-lg btn-custom shadow-sm"><i class="fa-solid fa-rocket me-2"></i>{{ t.get_started }}</a>
+                <a href="/login" class="btn btn-outline-secondary btn-lg btn-custom">{{ t.login }}</a>
             </div>
         </div>
 
-        <div class="col-md-5">
-            <div class="card p-4">
-                <h4 class="text-center mb-4"><i class="fa-solid fa-user-plus text-success me-2"></i>{{ t.register }}</h4>
-                <form action="/register" method="POST">
-                    <div class="mb-3">
-                        <label class="form-label">{{ t.username }}</label>
-                        <input type="text" name="username" class="form-control" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">{{ t.password }}</label>
-                        <input type="password" name="password" class="form-control" required>
-                    </div>
-                    <button type="submit" class="btn btn-success w-100 btn-custom mt-2">{{ t.register_btn }}</button>
-                </form>
+        <div class="row mt-5 pt-4 border-top">
+            <div class="col-md-4 mb-3">
+                <i class="fa-solid fa-bolt fa-2x text-primary mb-2"></i>
+                <h5 class="fw-bold">Fast Calculation</h5>
+                <p class="text-muted small">Input hours, rates, and expenses to calculate project margins instantly.</p>
+            </div>
+            <div class="col-md-4 mb-3">
+                <i class="fa-solid fa-file-pdf fa-2x text-success mb-2"></i>
+                <h5 class="fw-bold">PDF Export</h5>
+                <p class="text-muted small">Export branded PDF quotes ready to send to clients via WhatsApp or email.</p>
+            </div>
+            <div class="col-md-4 mb-3">
+                <i class="fa-solid fa-shield-halved fa-2x text-danger mb-2"></i>
+                <h5 class="fw-bold">Whish Money Ready</h5>
+                <p class="text-muted small">Local Whish Money payment workflow built specifically for Lebanon.</p>
             </div>
         </div>
     </div>
@@ -163,7 +159,7 @@
         </div>
     </div>
 
-    <!-- WHISH MONEY UPGRADE NOTICE (FOR FREE MEMBERS) -->
+    <!-- WHISH MONEY UPGRADE NOTICE -->
     {% if user and user[2] == 0 %}
     <div class="card p-4 mb-4 whish-alert">
         <h4 class="text-danger fw-bold"><i class="fa-solid fa-bolt me-2"></i>{{ t.whish_title }}</h4>
@@ -321,7 +317,6 @@
 
 </div>
 
-<!-- Bootstrap 5 JS Bundle -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
 </body>

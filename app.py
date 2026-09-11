@@ -7,23 +7,25 @@ import sqlite3
 from datetime import datetime
 
 try:
-    import psycopg2  # type: ignore[reportMissingModuleSource]
+    import psycopg2
 except ImportError:
     psycopg2 = None
 
 app = Flask(__name__)
 app.secret_key = "super_secret_saas_key_change_in_production"
 
-YOUR_WHISH_PHONE = "+961 70 041 203"  # 👈 Replace with your phone number
-YOUR_WHISH_NAME = "Salem Damaj"        # 👈 Replace with your name
+YOUR_WHISH_PHONE = "+961 70 041 203"  # 👈 Change to your phone number
+YOUR_WHISH_NAME = "Salem Damaj"        # 👈 Change to your name
 PRO_PLAN_PRICE = "$10.00 Fresh USD"
-
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 # --- TRANSLATION DICTIONARIES ---
 TRANSLATIONS = {
     "en": {
         "app_title": "QuoteSaaS Lebanon",
+        "hero_title": "Professional Project Quotes Made Simple",
+        "hero_sub": "Calculate project margins, estimate taxes, and generate downloadable client PDF quotes in seconds.",
+        "get_started": "Get Started Free",
         "pro_badge": "PRO MEMBER",
         "free_badge": "FREE MEMBER",
         "admin_link": "Admin Panel",
@@ -32,6 +34,8 @@ TRANSLATIONS = {
         "register": "Create Account",
         "username": "Username",
         "password": "Password",
+        "have_account": "Already have an account?",
+        "no_account": "Don't have an account?",
         "whish_title": "Upgrade to PRO via Whish Money",
         "whish_desc": "Unlock Unlimited PDF Downloads and official client quotes!",
         "whish_step1": "Send $10.00 Fresh USD via Whish Money App to:",
@@ -65,6 +69,9 @@ TRANSLATIONS = {
     },
     "ar": {
         "app_title": "تسعير المشاريع 🇱🇧",
+        "hero_title": "عروض أسعار احترافية لمشاريعك بكل بساطة",
+        "hero_sub": "احسب أرباحك والضرائب وقم بإنشاء وتنزيل ملفات PDF احترافية لعملائك في ثوانٍ.",
+        "get_started": "ابدأ مجاناً الآن",
         "pro_badge": "حساب احترافي PRO",
         "free_badge": "حساب مجاني",
         "admin_link": "لوحة الأدمن",
@@ -73,6 +80,8 @@ TRANSLATIONS = {
         "register": "حساب جديد",
         "username": "اسم المستخدم",
         "password": "كلمة المرور",
+        "have_account": "لديك حساب بالفعل؟",
+        "no_account": "ليس لديك حساب؟",
         "whish_title": "الترقية إلى الحساب الاحترافي عبر Whish Money",
         "whish_desc": "افتح صلاحية تحميل عروض الأسعار بصيغة PDF بدون حدود!",
         "whish_step1": "أرسل 10.00 دولار كاش (Fresh USD) عبر Whish إلى:",
@@ -207,7 +216,7 @@ def toggle_language():
 @app.route("/delete_quote/<int:quote_id>")
 def delete_quote(quote_id):
     if "user_id" not in session:
-        return redirect(url_for("home"))
+        return redirect(url_for("login"))
     
     conn, db_type = get_db()
     execute_query(conn, db_type, "DELETE FROM quotes WHERE id = ? AND user_id = ?", (quote_id, session["user_id"]))
@@ -217,44 +226,63 @@ def delete_quote(quote_id):
     flash("Quote deleted successfully.", "info")
     return redirect(url_for("home"))
 
-@app.route("/register", methods=["POST"])
-def register():
-    username = request.form.get("username", "").strip().lower()
-    password = request.form.get("password", "")
-    if not username or not password:
-        flash("Username and password required!", "danger")
+# --- DEDICATED LOGIN ROUTE ---
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if "user_id" in session:
         return redirect(url_for("home"))
 
-    hashed_pw = generate_password_hash(password)
-    try:
+    lang = session.get("lang", "en")
+    t = TRANSLATIONS.get(lang, TRANSLATIONS["en"])
+
+    if request.method == "POST":
+        username = request.form.get("username", "").strip().lower()
+        password = request.form.get("password", "")
+
         conn, db_type = get_db()
-        execute_query(conn, db_type, "INSERT INTO users (username, password, is_pro, is_admin) VALUES (?, ?, 0, 0)", (username, hashed_pw))
-        conn.commit()
+        cur = execute_query(conn, db_type, "SELECT id, password FROM users WHERE username = ?", (username,))
+        user = cur.fetchone()
         conn.close()
-        flash("Registration successful! Please log in.", "success")
-    except Exception:
-        flash("Username already exists!", "danger")
 
-    return redirect(url_for("home"))
+        if user and check_password_hash(user[1], password):
+            session["user_id"] = user[0]
+            session["username"] = username
+            flash("Welcome back!", "success")
+            return redirect(url_for("home"))
+        else:
+            flash("Invalid username or password!", "danger")
 
-@app.route("/login", methods=["POST"])
-def login():
-    username = request.form.get("username", "").strip().lower()
-    password = request.form.get("password", "")
+    return render_template("login.html", t=t, lang=lang)
 
-    conn, db_type = get_db()
-    cur = execute_query(conn, db_type, "SELECT id, password FROM users WHERE username = ?", (username,))
-    user = cur.fetchone()
-    conn.close()
+# --- DEDICATED REGISTER ROUTE ---
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if "user_id" in session:
+        return redirect(url_for("home"))
 
-    if user and check_password_hash(user[1], password):
-        session["user_id"] = user[0]
-        session["username"] = username
-        flash("Welcome back!", "success")
-    else:
-        flash("Invalid username or password!", "danger")
+    lang = session.get("lang", "en")
+    t = TRANSLATIONS.get(lang, TRANSLATIONS["en"])
 
-    return redirect(url_for("home"))
+    if request.method == "POST":
+        username = request.form.get("username", "").strip().lower()
+        password = request.form.get("password", "")
+        
+        if not username or not password:
+            flash("Username and password required!", "danger")
+            return redirect(url_for("register"))
+
+        hashed_pw = generate_password_hash(password)
+        try:
+            conn, db_type = get_db()
+            execute_query(conn, db_type, "INSERT INTO users (username, password, is_pro, is_admin) VALUES (?, ?, 0, 0)", (username, hashed_pw))
+            conn.commit()
+            conn.close()
+            flash("Registration successful! Please log in.", "success")
+            return redirect(url_for("login"))
+        except Exception:
+            flash("Username already exists!", "danger")
+
+    return render_template("register.html", t=t, lang=lang)
 
 @app.route("/logout")
 def logout():
@@ -265,7 +293,7 @@ def logout():
 @app.route("/submit_whish_payment", methods=["POST"])
 def submit_whish_payment():
     if "user_id" not in session:
-        return redirect(url_for("home"))
+        return redirect(url_for("login"))
 
     whish_ref = request.form.get("whish_ref", "").strip()
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -284,7 +312,7 @@ def submit_whish_payment():
 @app.route("/admin")
 def admin_panel():
     if "user_id" not in session:
-        return redirect(url_for("home"))
+        return redirect(url_for("login"))
     
     current_user = get_user_by_id(session["user_id"])
     if not current_user or current_user[3] != 1:
@@ -301,7 +329,7 @@ def admin_panel():
 @app.route("/admin/approve/<int:payment_id>")
 def approve_payment(payment_id):
     if "user_id" not in session:
-        return redirect(url_for("home"))
+        return redirect(url_for("login"))
     
     current_user = get_user_by_id(session["user_id"])
     if not current_user or current_user[3] != 1:
@@ -338,10 +366,8 @@ def home():
 
         user_quotes = get_user_quotes(session["user_id"])
 
-        # Calculate Analytics
         for q in user_quotes:
             try:
-                # Extract numerical value from formatted strings like "$1,500.00"
                 val = float(q[2].replace("$", "").replace(",", ""))
                 total_revenue += val
             except ValueError:
@@ -392,7 +418,7 @@ def home():
 def download_pdf():
     if "user_id" not in session:
         flash("Please log in to download PDFs.", "danger")
-        return redirect(url_for("home"))
+        return redirect(url_for("login"))
 
     user_info = get_user_by_id(session["user_id"])
     if not user_info or user_info[2] != 1:

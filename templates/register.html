@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}" dir="{{ 'rtl' if lang == 'ar' else 'ltr' }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ t.register }} - {{ t.app_title }}</title>
+    
+    {% if lang == 'ar' %}
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.rtl.min.css">
+    {% else %}
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+    {% endif %}
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <style>
+        body { background-color: #f4f6f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; flex-direction: column; min-height: 100vh; }
+        .card { border: none; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        .btn-custom { padding: 12px; font-weight: 600; border-radius: 8px; }
+    </style>
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm mb-4">
+    <div class="container">
+        <a class="navbar-brand fs-4 fw-bold text-primary" href="/"><i class="fa-solid me-2"></i>{{ t.app_title }}</a>
+        <a href="/toggle_language" class="btn btn-outline-primary btn-sm rounded-pill px-3">
+            {% if lang == 'en' %} 🇱🇧 العربية {% else %} 🇬🇧 English {% endif %}
+        </a>
+    </div>
+</nav>
+
+<div class="container my-auto py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-5 col-lg-4">
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+              {% if messages %}
+                {% for category, message in messages %}
+                  <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                  </div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+
+            <div class="card p-4">
+                <h3 class="text-center mb-4 fw-bold"><i class="fa-solid fa-user-plus text-success me-2"></i>{{ t.register }}</h3>
+                <form action="/register" method="POST">
+                    <div class="mb-3">
+                        <label class="form-label font-weight-bold">{{ t.username }}</label>
+                        <input type="text" name="username" class="form-control form-control-lg" required autofocus>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label font-weight-bold">{{ t.password }}</label>
+                        <input type="password" name="password" class="form-control form-control-lg" required>
+                    </div>
+                    <button type="submit" class="btn btn-success w-100 btn-custom mt-3">{{ t.register_btn }}</button>
+                </form>
+
+                <hr class="my-4">
+                <p class="text-center mb-0 text-muted">
+                    {{ t.have_account }} <a href="/login" class="fw-bold text-primary text-decoration-none">{{ t.login }}</a>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
