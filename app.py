@@ -1,87 +1,146 @@
-from flask import Flask, render_template, request, send_file
+from flask import Flask, render_template, request, redirect, url_for, session, send_file, flash
+from werkzeug.security import generate_password_hash, check_password_hash
 from fpdf import FPDF
 import io
 import sqlite3
 
 app = Flask(__name__)
+app.secret_key = "super_secret_saas_key_change_in_production"
 
 # --- DATABASE SETUP ---
 def init_db():
     conn = sqlite3.connect("quotes.db")
     cursor = conn.cursor()
+    
+    # Users table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL
+        )
+    ''')
+    
+    # Quotes table linked to user_id
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS quotes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
             client TEXT,
             gross TEXT,
             expenses TEXT,
             tax TEXT,
-            take_home TEXT
+            take_home TEXT,
+            FOREIGN KEY (user_id) REFERENCES users (id)
         )
     ''')
     conn.commit()
     conn.close()
 
-# Initialize DB on start
 init_db()
 
-
-def save_quote_to_db(client, gross, expenses, tax, take_home):
+# --- HELPER DATABASE FUNCTIONS ---
+def save_quote_to_db(user_id, client, gross, expenses, tax, take_home):
     conn = sqlite3.connect("quotes.db")
     cursor = conn.cursor()
     cursor.execute('''
-        INSERT INTO quotes (client, gross, expenses, tax, take_home)
-        VALUES (?, ?, ?, ?, ?)
-    ''', (client, gross, expenses, tax, take_home))
+        INSERT INTO quotes (user_id, client, gross, expenses, tax, take_home)
+        VALUES (?, ?, ?, ?, ?, ?)
+    ''', (user_id, client, gross, expenses, tax, take_home))
     conn.commit()
     conn.close()
 
-
-def get_all_quotes():
+def get_user_quotes(user_id):
     conn = sqlite3.connect("quotes.db")
     cursor = conn.cursor()
-    cursor.execute('SELECT client, gross, expenses, tax, take_home FROM quotes ORDER BY id DESC LIMIT 10')
+    cursor.execute('SELECT client, gross, expenses, tax, take_home FROM quotes WHERE user_id = ? ORDER BY id DESC', (user_id,))
     rows = cursor.fetchall()
     conn.close()
     return rows
 
+# --- AUTH ROUTES ---
+@app.route("/register", methods=["POST"])
+def register():
+    username = request.form.get("username").strip().lower()
+    password = request.form.get("password")
+    hashed_pw = generate_password_hash(password)
 
-# --- ROUTES ---
+    try:
+        conn = sqlite3.connect("quotes.db")
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, hashed_pw))
+        conn.commit()
+        conn.close()
+        flash("Registration successful! Please log in.", "success")
+    except sqlite3.IntegrityError:
+        flash("Username already exists! Choose another.", "danger")
+
+    return redirect(url_for("home"))
+
+@app.route("/login", methods=["POST"])
+def login():
+    username = request.form.get("username").strip().lower()
+    password = request.form.get("password")
+
+    conn = sqlite3.connect("quotes.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, password FROM users WHERE username = ?", (username,))
+    user = cursor.fetchone()
+    conn.close()
+
+    if user and check_password_hash(user[1], password):
+        session["user_id"] = user[0]
+        session["username"] = username
+        flash("Welcome back!", "success")
+    else:
+        flash("Invalid username or password!", "danger")
+
+    return redirect(url_for("home"))
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    flash("You have been logged out.", "info")
+    return redirect(url_for("home"))
+
+# --- MAIN DASHBOARD ROUTE ---
 @app.route("/", methods=["GET", "POST"])
 def home():
     result = None
-    if request.method == "POST":
-        client_name = request.form.get("client_name")
-        hourly_rate = float(request.form.get("hourly_rate", 0))
-        hours = float(request.form.get("hours", 0))
-        expenses = float(request.form.get("expenses", 0))
+    user_quotes = []
 
-        gross_income = hourly_rate * hours
-        net_profit = gross_income - expenses
-        tax_estimate = net_profit * 0.20
-        take_home = net_profit - tax_estimate
+    if "user_id" in session:
+        user_quotes = get_user_quotes(session["user_id"])
 
-        gross_str = f"${gross_income:,.2f}"
-        expenses_str = f"${expenses:,.2f}"
-        tax_str = f"${tax_estimate:,.2f}"
-        take_home_str = f"${take_home:,.2f}"
+        if request.method == "POST":
+            client_name = request.form.get("client_name")
+            hourly_rate = float(request.form.get("hourly_rate", 0))
+            hours = float(request.form.get("hours", 0))
+            expenses = float(request.form.get("expenses", 0))
 
-        result = {
-            "client": client_name,
-            "gross": gross_str,
-            "expenses": expenses_str,
-            "tax": tax_str,
-            "take_home": take_home_str
-        }
+            gross_income = hourly_rate * hours
+            net_profit = gross_income - expenses
+            tax_estimate = net_profit * 0.20
+            take_home = net_profit - tax_estimate
 
-        # Save to database
-        save_quote_to_db(client_name, gross_str, expenses_str, tax_str, take_home_str)
+            gross_str = f"${gross_income:,.2f}"
+            expenses_str = f"${expenses:,.2f}"
+            tax_str = f"${tax_estimate:,.2f}"
+            take_home_str = f"${take_home:,.2f}"
 
-    # Fetch recent history
-    history = get_all_quotes()
+            result = {
+                "client": client_name,
+                "gross": gross_str,
+                "expenses": expenses_str,
+                "tax": tax_str,
+                "take_home": take_home_str
+            }
 
-    return render_template("index.html", result=result, history=history)
+            # Save quote under logged-in user's ID
+            save_quote_to_db(session["user_id"], client_name, gross_str, expenses_str, tax_str, take_home_str)
+            user_quotes = get_user_quotes(session["user_id"])
 
+    return render_template("index.html", result=result, history=user_quotes)
 
 @app.route("/download_pdf", methods=["POST"])
 def download_pdf():
@@ -93,8 +152,6 @@ def download_pdf():
 
     pdf = FPDF()
     pdf.add_page()
-
-    # Title
     pdf.set_font("Helvetica", size=18, style="B")
     pdf.cell(0, 12, txt="OFFICIAL PROJECT QUOTE", ln=True, align="C")
     
@@ -103,20 +160,16 @@ def download_pdf():
     pdf.cell(0, 6, txt="Generated via Freelance Quote Tool", ln=True, align="C")
     pdf.ln(6)
 
-    # Top Divider Line
     pdf.set_draw_color(200, 200, 200)
     pdf.line(10, pdf.get_y(), 200, pdf.get_y())
     pdf.ln(8)
 
-    # Client Info
     pdf.set_text_color(0, 0, 0)
     pdf.set_font("Helvetica", size=12, style="B")
     pdf.cell(0, 10, txt=f"Client / Project: {client}", ln=True)
     pdf.ln(4)
 
-    # Financial Breakdown
     pdf.set_font("Helvetica", size=11)
-    
     pdf.cell(100, 8, txt="Gross Project Total:", border=0)
     pdf.cell(90, 8, txt=f"{gross}", border=0, ln=True, align="R")
 
@@ -127,11 +180,9 @@ def download_pdf():
     pdf.cell(90, 8, txt=f"-{tax}", border=0, ln=True, align="R")
 
     pdf.ln(6)
-    # Bottom Divider Line
     pdf.line(10, pdf.get_y(), 200, pdf.get_y())
     pdf.ln(8)
 
-    # Net Take-Home
     pdf.set_font("Helvetica", size=14, style="B")
     pdf.set_text_color(39, 174, 96)
     pdf.cell(100, 10, txt="Estimated Net Take-Home:", border=0)
