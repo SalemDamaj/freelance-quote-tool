@@ -56,7 +56,9 @@
                         <label class="form-label font-weight-bold">{{ t.password }}</label>
                         <input type="password" name="password" class="form-control form-control-lg" required>
                     </div>
-                    <button type="submit" class="btn btn-success w-100 btn-custom mt-3">{{ t.register_btn }}</button>
+                    <button type="submit" class="btn btn-success w-100 btn-custom mt-3">
+                        {{ t.register_btn if t.register_btn else "Create Account" }}
+                    </button>
                 </form>
 
                 <hr class="my-4">
