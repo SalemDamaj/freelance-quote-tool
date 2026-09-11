@@ -8,8 +8,8 @@ from datetime import datetime
 app = Flask(__name__)
 app.secret_key = "super_secret_saas_key_change_in_production"
 
-YOUR_WHISH_PHONE = "+961 70 000 000"  # Replace with your number
-YOUR_WHISH_NAME = "Salem Damaj"        # Replace with your name
+YOUR_WHISH_PHONE = "+961 70 000 000"  # 👈 Change to your number
+YOUR_WHISH_NAME = "Salem Damaj"        # 👈 Change to your name
 PRO_PLAN_PRICE = "$10.00 Fresh USD"
 DB_FILE = "quotes.db"
 
@@ -174,11 +174,11 @@ def get_user_quotes(user_id):
     conn.close()
     return rows
 
-# --- LANGUAGE SWITCH ROUTE ---
-@app.route("/set_language/<lang>")
-def set_language(lang):
-    if lang in ["en", "ar"]:
-        session["lang"] = lang
+# --- SINGLE BUTTON LANGUAGE TOGGLE ---
+@app.route("/toggle_language")
+def toggle_language():
+    current_lang = session.get("lang", "en")
+    session["lang"] = "ar" if current_lang == "en" else "en"
     return redirect(request.referrer or url_for("home"))
 
 # --- AUTH ROUTES ---
@@ -355,7 +355,7 @@ def download_pdf():
 
     user_info = get_user_by_id(session["user_id"])
     if not user_info or user_info["is_pro"] != 1:
-        flash("PDF Export is a PRO Feature!", "danger")
+        flash("PDF Export is a PRO Feature! Upgrade via Whish Money below.", "danger")
         return redirect(url_for("home"))
 
     client = request.form.get("client")

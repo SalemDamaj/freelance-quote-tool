@@ -21,21 +21,6 @@
             align-items: center;
             margin-bottom: 20px;
         }
-        .lang-switch a {
-            text-decoration: none;
-            padding: 5px 10px;
-            border-radius: 4px;
-            background: #fff;
-            border: 1px solid #ccc;
-            color: #333;
-            font-weight: bold;
-            font-size: 13px;
-        }
-        .lang-switch a.active {
-            background: #0066ff;
-            color: white;
-            border-color: #0066ff;
-        }
         .container {
             background: white;
             padding: 30px;
@@ -112,10 +97,15 @@
     <h2 style="margin:0;">{{ t.app_title }}</h2>
     
     <div style="display: flex; align-items: center; gap: 10px;">
-        <!-- LANGUAGE SWITCHER -->
+        <!-- SINGLE LANGUAGE TOGGLE BUTTON -->
         <div class="lang-switch">
-            <a href="/set_language/en" class="{{ 'active' if lang == 'en' else '' }}">🇬🇧 EN</a>
-            <a href="/set_language/ar" class="{{ 'active' if lang == 'ar' else '' }}">🇱🇧 العربية</a>
+            <a href="/toggle_language" style="text-decoration: none; padding: 6px 14px; border-radius: 6px; background: #ffffff; border: 1px solid #0066ff; color: #0066ff; font-weight: bold; font-size: 14px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+                {% if lang == 'en' %}
+                    🇱🇧 العربية
+                {% else %}
+                    🇬🇧 English
+                {% endif %}
+            </a>
         </div>
 
         {% if session.get('username') %}
