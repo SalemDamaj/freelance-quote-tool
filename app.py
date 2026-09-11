@@ -8,7 +8,7 @@ from datetime import datetime
 app = Flask(__name__)
 app.secret_key = "super_secret_saas_key_change_in_production"
 
-YOUR_WHISH_PHONE = "+961 70 000 000"  # 👈 Change to your number
+YOUR_WHISH_PHONE = "+961 70 041 203"  # 👈 Change to your number
 YOUR_WHISH_NAME = "Salem Damaj"        # 👈 Change to your name
 PRO_PLAN_PRICE = "$10.00 Fresh USD"
 DB_FILE = "quotes.db"
