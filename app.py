@@ -8,7 +8,7 @@ from datetime import datetime
 
 # Import PostgreSQL library if on cloud
 try:
-    import psycopg2
+    import psycopg2  # type: ignore[import-not-found]
 except ImportError:
     psycopg2 = None
 
