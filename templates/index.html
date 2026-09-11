@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Freelance Project Quote Estimator</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            width: 100%;
+            max-width: 520px;
+            margin-bottom: 30px;
+        }
+        h2, h3 { color: #1a1a1a; margin-top: 0; text-align: center; }
+        label { font-weight: 600; font-size: 14px; color: #555; display: block; margin-top: 15px; }
+        input {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 15px;
+        }
+        .btn-calc {
+            width: 100%;
+            background-color: #0066ff;
+            color: white;
+            border: none;
+            padding: 12px;
+            margin-top: 20px;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .btn-calc:hover { background-color: #0052cc; }
+        .btn-pdf {
+            width: 100%;
+            background-color: #27ae60;
+            color: white;
+            border: none;
+            padding: 12px;
+            margin-top: 15px;
+            border-radius: 6px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .btn-pdf:hover { background-color: #219150; }
+        .results {
+            margin-top: 25px;
+            padding: 15px;
+            background-color: #eafaf1;
+            border-left: 4px solid #2ecc71;
+            border-radius: 4px;
+        }
+        .row { display: flex; justify-content: space-between; margin: 8px 0; }
+        
+        /* History Table Styling */
+        .history-card {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            width: 100%;
+            max-width: 700px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        th, td {
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+            font-size: 14px;
+        }
+        th { background-color: #f8f9fa; color: #444; }
+        tr:hover { background-color: #f1f5f9; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>💼 Project Quote Estimator</h2>
+    
+    <form method="POST">
+        <label>Client / Project Name:</label>
+        <input type="text" name="client_name" placeholder="e.g. Acme Corp Redesign" required>
+
+        <label>Hourly Rate ($):</label>
+        <input type="number" step="any" name="hourly_rate" placeholder="e.g. 50" required>
+
+        <label>Estimated Hours:</label>
+        <input type="number" step="any" name="hours" placeholder="e.g. 30" required>
+
+        <label>Direct Project Expenses ($):</label>
+        <input type="number" step="any" name="expenses" placeholder="e.g. 100" value="0">
+
+        <button type="submit" class="btn-calc">Calculate & Save Quote</button>
+    </form>
+
+    {% if result %}
+    <div class="results">
+        <h3 style="color: #27ae60;">Summary for {{ result.client }}</h3>
+        <div class="row"><span>Gross Quote:</span> <strong>{{ result.gross }}</strong></div>
+        <div class="row"><span>Expenses:</span> <span>{{ result.expenses }}</span></div>
+        <div class="row"><span>Estimated Tax (20%):</span> <span>{{ result.tax }}</span></div>
+        <hr>
+        <div class="row" style="font-size: 1.1em; color: #27ae60;">
+            <span>Estimated Take-Home:</span> <strong>{{ result.take_home }}</strong>
+        </div>
+
+        <form action="/download_pdf" method="POST">
+            <input type="hidden" name="client" value="{{ result.client }}">
+            <input type="hidden" name="gross" value="{{ result.gross }}">
+            <input type="hidden" name="expenses" value="{{ result.expenses }}">
+            <input type="hidden" name="tax" value="{{ result.tax }}">
+            <input type="hidden" name="take_home" value="{{ result.take_home }}">
+            <button type="submit" class="btn-pdf">📥 Download PDF Quote</button>
+        </form>
+    </div>
+    {% endif %}
+</div>
+
+<!-- HISTORY DASHBOARD -->
+<div class="history-card">
+    <h3>📜 Recent Quotes History</h3>
+    {% if history %}
+    <table>
+        <thead>
+            <tr>
+                <th>Client</th>
+                <th>Gross</th>
+                <th>Expenses</th>
+                <th>Tax</th>
+                <th>Take-Home</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in history %}
+            <tr>
+                <td><strong>{{ item[0] }}</strong></td>
+                <td>{{ item[1] }}</td>
+                <td>{{ item[2] }}</td>
+                <td>{{ item[3] }}</td>
+                <td style="color: #27ae60; font-weight: bold;">{{ item[4] }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="text-align: center; color: #888;">No quotes saved yet. Create your first quote above!</p>
+    {% endif %}
+</div>
+
+</body>
+</html>
