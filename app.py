@@ -3,42 +3,37 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from fpdf import FPDF
 import io
 import sqlite3
+import os
 from datetime import datetime
 
 app = Flask(__name__)
 app.secret_key = "super_secret_saas_key_change_in_production"
 
-# --- YOUR WHISH MONEY DETAILS ---
-YOUR_WHISH_PHONE = "+961 70 041 203"  # 👈 REPLACE WITH YOUR REAL WHISH PHONE NUMBER
-YOUR_WHISH_NAME = "Salem Damaj"        # 👈 REPLACE WITH YOUR WHISH ACCOUNT NAME
+YOUR_WHISH_PHONE = "+961 70 041 203"
+YOUR_WHISH_NAME = "Salem Damaj"
 PRO_PLAN_PRICE = "$10.00 Fresh USD"
 
-# --- DATABASE SETUP WITH MIGRATIONS ---
+DB_FILE = "quotes.db"
+
+def get_db_connection():
+    conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
+    return conn
+
 def init_db():
-    conn = sqlite3.connect("quotes.db")
+    conn = get_db_connection()
     cursor = conn.cursor()
     
-    # 1. Base Users table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL
+            password TEXT NOT NULL,
+            is_pro INTEGER DEFAULT 0,
+            is_admin INTEGER DEFAULT 0
         )
     ''')
     
-    # 2. Add new columns safely if upgrading existing database
-    try:
-        cursor.execute("ALTER TABLE users ADD COLUMN is_pro INTEGER DEFAULT 0")
-    except sqlite3.OperationalError:
-        pass # Column already exists
-
-    try:
-        cursor.execute("ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0")
-    except sqlite3.OperationalError:
-        pass # Column already exists
-
-    # 3. Quotes table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS quotes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -47,12 +42,10 @@ def init_db():
             gross TEXT,
             expenses TEXT,
             tax TEXT,
-            take_home TEXT,
-            FOREIGN KEY (user_id) REFERENCES users (id)
+            take_home TEXT
         )
     ''')
 
-    # 4. Whish Payments Table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS payments (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -61,12 +54,11 @@ def init_db():
             whish_ref TEXT NOT NULL,
             amount TEXT NOT NULL,
             status TEXT DEFAULT 'PENDING',
-            created_at TEXT NOT NULL,
-            FOREIGN KEY (user_id) REFERENCES users (id)
+            created_at TEXT NOT NULL
         )
     ''')
 
-    # 5. Create default Admin account if not exists
+    # Re-create admin account
     cursor.execute("SELECT * FROM users WHERE username = 'admin'")
     if not cursor.fetchone():
         admin_pw = generate_password_hash("admin123")
@@ -75,19 +67,22 @@ def init_db():
     conn.commit()
     conn.close()
 
+# Initialize DB safely
 init_db()
 
-# --- DATABASE HELPERS ---
 def get_user_by_id(user_id):
-    conn = sqlite3.connect("quotes.db")
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, username, is_pro, is_admin FROM users WHERE id = ?", (user_id,))
-    user = cursor.fetchone()
-    conn.close()
-    return user
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, username, is_pro, is_admin FROM users WHERE id = ?", (user_id,))
+        user = cursor.fetchone()
+        conn.close()
+        return user
+    except Exception:
+        return None
 
 def save_quote_to_db(user_id, client, gross, expenses, tax, take_home):
-    conn = sqlite3.connect("quotes.db")
+    conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('''
         INSERT INTO quotes (user_id, client, gross, expenses, tax, take_home)
@@ -97,45 +92,51 @@ def save_quote_to_db(user_id, client, gross, expenses, tax, take_home):
     conn.close()
 
 def get_user_quotes(user_id):
-    conn = sqlite3.connect("quotes.db")
+    conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('SELECT client, gross, expenses, tax, take_home FROM quotes WHERE user_id = ? ORDER BY id DESC', (user_id,))
     rows = cursor.fetchall()
     conn.close()
     return rows
 
-# --- AUTH ROUTES ---
 @app.route("/register", methods=["POST"])
 def register():
-    username = request.form.get("username").strip().lower()
-    password = request.form.get("password")
+    username = request.form.get("username", "").strip().lower()
+    password = request.form.get("password", "")
+    
+    if not username or not password:
+        flash("Username and password required!", "danger")
+        return redirect(url_for("home"))
+
     hashed_pw = generate_password_hash(password)
 
     try:
-        conn = sqlite3.connect("quotes.db")
+        conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, hashed_pw))
+        cursor.execute("INSERT INTO users (username, password, is_pro, is_admin) VALUES (?, ?, 0, 0)", (username, hashed_pw))
         conn.commit()
         conn.close()
         flash("Registration successful! Please log in.", "success")
     except sqlite3.IntegrityError:
         flash("Username already exists!", "danger")
+    except Exception as e:
+        flash(f"Error: {str(e)}", "danger")
 
     return redirect(url_for("home"))
 
 @app.route("/login", methods=["POST"])
 def login():
-    username = request.form.get("username").strip().lower()
-    password = request.form.get("password")
+    username = request.form.get("username", "").strip().lower()
+    password = request.form.get("password", "")
 
-    conn = sqlite3.connect("quotes.db")
+    conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT id, password FROM users WHERE username = ?", (username,))
     user = cursor.fetchone()
     conn.close()
 
-    if user and check_password_hash(user[1], password):
-        session["user_id"] = user[0]
+    if user and check_password_hash(user["password"], password):
+        session["user_id"] = user["id"]
         session["username"] = username
         flash("Welcome back!", "success")
     else:
@@ -149,16 +150,15 @@ def logout():
     flash("Logged out successfully.", "info")
     return redirect(url_for("home"))
 
-# --- WHISH MONEY PAYMENT SUBMISSION ---
 @app.route("/submit_whish_payment", methods=["POST"])
 def submit_whish_payment():
     if "user_id" not in session:
         return redirect(url_for("home"))
 
-    whish_ref = request.form.get("whish_ref").strip()
+    whish_ref = request.form.get("whish_ref", "").strip()
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
 
-    conn = sqlite3.connect("quotes.db")
+    conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('''
         INSERT INTO payments (user_id, username, whish_ref, amount, created_at)
@@ -167,21 +167,20 @@ def submit_whish_payment():
     conn.commit()
     conn.close()
 
-    flash("Payment Reference Submitted! We are verifying your Whish transfer.", "info")
+    flash("Payment Reference Submitted! Verification in progress.", "info")
     return redirect(url_for("home"))
 
-# --- ADMIN PANEL & APPROVALS ---
 @app.route("/admin")
 def admin_panel():
     if "user_id" not in session:
         return redirect(url_for("home"))
     
     current_user = get_user_by_id(session["user_id"])
-    if not current_user or current_user[3] != 1:  # Check if admin
-        flash("Access Denied! Admin eyes only.", "danger")
+    if not current_user or current_user["is_admin"] != 1:
+        flash("Access Denied!", "danger")
         return redirect(url_for("home"))
 
-    conn = sqlite3.connect("quotes.db")
+    conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT id, user_id, username, whish_ref, amount, status, created_at FROM payments ORDER BY id DESC")
     all_payments = cursor.fetchall()
@@ -195,28 +194,23 @@ def approve_payment(payment_id):
         return redirect(url_for("home"))
     
     current_user = get_user_by_id(session["user_id"])
-    if not current_user or current_user[3] != 1:
+    if not current_user or current_user["is_admin"] != 1:
         return redirect(url_for("home"))
 
-    conn = sqlite3.connect("quotes.db")
+    conn = get_db_connection()
     cursor = conn.cursor()
-    
-    # Get user_id for this payment
     cursor.execute("SELECT user_id FROM payments WHERE id = ?", (payment_id,))
     pay = cursor.fetchone()
     if pay:
-        user_to_upgrade = pay[0]
-        # Update payment status
+        user_to_upgrade = pay["user_id"]
         cursor.execute("UPDATE payments SET status = 'APPROVED' WHERE id = ?", (payment_id,))
-        # Upgrade user to Pro
         cursor.execute("UPDATE users SET is_pro = 1 WHERE id = ?", (user_to_upgrade,))
         conn.commit()
-        flash(f"Payment #{payment_id} Approved! User is now PRO 🎉", "success")
+        flash(f"Payment #{payment_id} Approved! User upgraded to PRO 🎉", "success")
 
     conn.close()
     return redirect(url_for("admin_panel"))
 
-# --- MAIN DASHBOARD ---
 @app.route("/", methods=["GET", "POST"])
 def home():
     result = None
@@ -225,6 +219,10 @@ def home():
 
     if "user_id" in session:
         user_info = get_user_by_id(session["user_id"])
+        if not user_info:
+            session.clear()
+            return redirect(url_for("home"))
+
         user_quotes = get_user_quotes(session["user_id"])
 
         if request.method == "POST":
@@ -271,7 +269,7 @@ def download_pdf():
         return redirect(url_for("home"))
 
     user_info = get_user_by_id(session["user_id"])
-    if not user_info or user_info[2] != 1:  # Check is_pro
+    if not user_info or user_info["is_pro"] != 1:
         flash("PDF Export is a PRO Feature! Upgrade via Whish Money below.", "danger")
         return redirect(url_for("home"))
 
