@@ -2,16 +2,25 @@ from flask import Flask, render_template, request, redirect, url_for, session, s
 from werkzeug.security import generate_password_hash, check_password_hash
 from fpdf import FPDF
 import io
+import os
 import sqlite3
 from datetime import datetime
+
+# Import PostgreSQL library if on cloud
+try:
+    import psycopg2
+except ImportError:
+    psycopg2 = None
 
 app = Flask(__name__)
 app.secret_key = "super_secret_saas_key_change_in_production"
 
-YOUR_WHISH_PHONE = "+961 70 041 203"  # 👈 Change to your number
-YOUR_WHISH_NAME = "Salem Damaj"        # 👈 Change to your name
+YOUR_WHISH_PHONE = "+961 70 041 203"
+YOUR_WHISH_NAME = "Salem Damaj"
 PRO_PLAN_PRICE = "$10.00 Fresh USD"
-DB_FILE = "quotes.db"
+
+# Check if running on Cloud with PostgreSQL
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
 # --- TRANSLATION DICTIONARIES ---
 TRANSLATIONS = {
@@ -97,15 +106,31 @@ TRANSLATIONS = {
     }
 }
 
-def get_db_connection():
-    conn = sqlite3.connect(DB_FILE)
-    conn.row_factory = sqlite3.Row
-    return conn
+# --- UNIVERSAL DB HELPER ---
+def get_db():
+    if DATABASE_URL and psycopg2:
+        # Connect to PostgreSQL on Render
+        conn = psycopg2.connect(DATABASE_URL, sslmode="require")
+        return conn, "pg"
+    else:
+        # Connect to SQLite Locally
+        conn = sqlite3.connect("quotes.db")
+        return conn, "sqlite"
+
+def execute_query(conn, db_type, query, params=()):
+    cursor = conn.cursor()
+    if db_type == "pg":
+        query = query.replace("?", "%s")
+        query = query.replace("INTEGER PRIMARY KEY AUTOINCREMENT", "SERIAL PRIMARY KEY")
+        cursor.execute(query, params)
+    else:
+        cursor.execute(query, params)
+    return cursor
 
 def init_db():
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('''
+    conn, db_type = get_db()
+    
+    execute_query(conn, db_type, '''
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE NOT NULL,
@@ -114,7 +139,8 @@ def init_db():
             is_admin INTEGER DEFAULT 0
         )
     ''')
-    cursor.execute('''
+    
+    execute_query(conn, db_type, '''
         CREATE TABLE IF NOT EXISTS quotes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
@@ -125,7 +151,8 @@ def init_db():
             take_home TEXT
         )
     ''')
-    cursor.execute('''
+
+    execute_query(conn, db_type, '''
         CREATE TABLE IF NOT EXISTS payments (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
@@ -136,10 +163,12 @@ def init_db():
             created_at TEXT NOT NULL
         )
     ''')
-    cursor.execute("SELECT * FROM users WHERE username = 'admin'")
-    if not cursor.fetchone():
+
+    cur = execute_query(conn, db_type, "SELECT * FROM users WHERE username = 'admin'")
+    if not cur.fetchone():
         admin_pw = generate_password_hash("admin123")
-        cursor.execute("INSERT INTO users (username, password, is_pro, is_admin) VALUES ('admin', ?, 1, 1)", (admin_pw,))
+        execute_query(conn, db_type, "INSERT INTO users (username, password, is_pro, is_admin) VALUES ('admin', ?, 1, 1)", (admin_pw,))
+    
     conn.commit()
     conn.close()
 
@@ -147,19 +176,17 @@ init_db()
 
 def get_user_by_id(user_id):
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT id, username, is_pro, is_admin FROM users WHERE id = ?", (user_id,))
-        user = cursor.fetchone()
+        conn, db_type = get_db()
+        cur = execute_query(conn, db_type, "SELECT id, username, is_pro, is_admin FROM users WHERE id = ?", (user_id,))
+        user = cur.fetchone()
         conn.close()
         return user
     except Exception:
         return None
 
 def save_quote_to_db(user_id, client, gross, expenses, tax, take_home):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('''
+    conn, db_type = get_db()
+    execute_query(conn, db_type, '''
         INSERT INTO quotes (user_id, client, gross, expenses, tax, take_home)
         VALUES (?, ?, ?, ?, ?, ?)
     ''', (user_id, client, gross, expenses, tax, take_home))
@@ -167,21 +194,18 @@ def save_quote_to_db(user_id, client, gross, expenses, tax, take_home):
     conn.close()
 
 def get_user_quotes(user_id):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('SELECT client, gross, expenses, tax, take_home FROM quotes WHERE user_id = ? ORDER BY id DESC', (user_id,))
-    rows = cursor.fetchall()
+    conn, db_type = get_db()
+    cur = execute_query(conn, db_type, 'SELECT client, gross, expenses, tax, take_home FROM quotes WHERE user_id = ? ORDER BY id DESC', (user_id,))
+    rows = cur.fetchall()
     conn.close()
     return rows
 
-# --- SINGLE BUTTON LANGUAGE TOGGLE ---
 @app.route("/toggle_language")
 def toggle_language():
     current_lang = session.get("lang", "en")
     session["lang"] = "ar" if current_lang == "en" else "en"
     return redirect(request.referrer or url_for("home"))
 
-# --- AUTH ROUTES ---
 @app.route("/register", methods=["POST"])
 def register():
     username = request.form.get("username", "").strip().lower()
@@ -192,14 +216,13 @@ def register():
 
     hashed_pw = generate_password_hash(password)
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("INSERT INTO users (username, password, is_pro, is_admin) VALUES (?, ?, 0, 0)", (username, hashed_pw))
+        conn, db_type = get_db()
+        execute_query(conn, db_type, "INSERT INTO users (username, password, is_pro, is_admin) VALUES (?, ?, 0, 0)", (username, hashed_pw))
         conn.commit()
         conn.close()
         flash("Registration successful! Please log in.", "success")
-    except sqlite3.IntegrityError:
-        flash("Username already exists!", "danger")
+    except Exception:
+        flash("Username already exists or registration failed!", "danger")
 
     return redirect(url_for("home"))
 
@@ -208,14 +231,13 @@ def login():
     username = request.form.get("username", "").strip().lower()
     password = request.form.get("password", "")
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, password FROM users WHERE username = ?", (username,))
-    user = cursor.fetchone()
+    conn, db_type = get_db()
+    cur = execute_query(conn, db_type, "SELECT id, password FROM users WHERE username = ?", (username,))
+    user = cur.fetchone()
     conn.close()
 
-    if user and check_password_hash(user["password"], password):
-        session["user_id"] = user["id"]
+    if user and check_password_hash(user[1], password):
+        session["user_id"] = user[0]
         session["username"] = username
         flash("Welcome back!", "success")
     else:
@@ -237,9 +259,8 @@ def submit_whish_payment():
     whish_ref = request.form.get("whish_ref", "").strip()
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('''
+    conn, db_type = get_db()
+    execute_query(conn, db_type, '''
         INSERT INTO payments (user_id, username, whish_ref, amount, created_at)
         VALUES (?, ?, ?, ?, ?)
     ''', (session["user_id"], session["username"], whish_ref, PRO_PLAN_PRICE, now_str))
@@ -255,14 +276,13 @@ def admin_panel():
         return redirect(url_for("home"))
     
     current_user = get_user_by_id(session["user_id"])
-    if not current_user or current_user["is_admin"] != 1:
+    if not current_user or current_user[3] != 1:
         flash("Access Denied!", "danger")
         return redirect(url_for("home"))
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, user_id, username, whish_ref, amount, status, created_at FROM payments ORDER BY id DESC")
-    all_payments = cursor.fetchall()
+    conn, db_type = get_db()
+    cur = execute_query(conn, db_type, "SELECT id, user_id, username, whish_ref, amount, status, created_at FROM payments ORDER BY id DESC")
+    all_payments = cur.fetchall()
     conn.close()
 
     return render_template("admin.html", payments=all_payments)
@@ -273,17 +293,16 @@ def approve_payment(payment_id):
         return redirect(url_for("home"))
     
     current_user = get_user_by_id(session["user_id"])
-    if not current_user or current_user["is_admin"] != 1:
+    if not current_user or current_user[3] != 1:
         return redirect(url_for("home"))
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT user_id FROM payments WHERE id = ?", (payment_id,))
-    pay = cursor.fetchone()
+    conn, db_type = get_db()
+    cur = execute_query(conn, db_type, "SELECT user_id FROM payments WHERE id = ?", (payment_id,))
+    pay = cur.fetchone()
     if pay:
-        user_to_upgrade = pay["user_id"]
-        cursor.execute("UPDATE payments SET status = 'APPROVED' WHERE id = ?", (payment_id,))
-        cursor.execute("UPDATE users SET is_pro = 1 WHERE id = ?", (user_to_upgrade,))
+        user_to_upgrade = pay[0]
+        execute_query(conn, db_type, "UPDATE payments SET status = 'APPROVED' WHERE id = ?", (payment_id,))
+        execute_query(conn, db_type, "UPDATE users SET is_pro = 1 WHERE id = ?", (user_to_upgrade,))
         conn.commit()
         flash(f"Payment #{payment_id} Approved! User upgraded to PRO 🎉", "success")
 
@@ -296,7 +315,6 @@ def home():
     user_quotes = []
     user_info = None
 
-    # Determine language
     lang = session.get("lang", "en")
     t = TRANSLATIONS.get(lang, TRANSLATIONS["en"])
 
@@ -354,8 +372,8 @@ def download_pdf():
         return redirect(url_for("home"))
 
     user_info = get_user_by_id(session["user_id"])
-    if not user_info or user_info["is_pro"] != 1:
-        flash("PDF Export is a PRO Feature! Upgrade via Whish Money below.", "danger")
+    if not user_info or user_info[2] != 1:
+        flash("PDF Export is a PRO Feature!", "danger")
         return redirect(url_for("home"))
 
     client = request.form.get("client")
