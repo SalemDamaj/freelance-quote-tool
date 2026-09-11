@@ -6,114 +6,112 @@ import os
 import sqlite3
 from datetime import datetime
 
-# Import PostgreSQL library if on cloud
 try:
-    import psycopg2  # type: ignore[import-not-found]
+    import psycopg2  # type: ignore[reportMissingModuleSource]
 except ImportError:
     psycopg2 = None
 
 app = Flask(__name__)
 app.secret_key = "super_secret_saas_key_change_in_production"
 
-YOUR_WHISH_PHONE = "+961 70 041 203"
-YOUR_WHISH_NAME = "Salem Damaj"
+YOUR_WHISH_PHONE = "+961 70 041 203"  # 👈 Replace with your phone number
+YOUR_WHISH_NAME = "Salem Damaj"        # 👈 Replace with your name
 PRO_PLAN_PRICE = "$10.00 Fresh USD"
 
-# Check if running on Cloud with PostgreSQL
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 # --- TRANSLATION DICTIONARIES ---
 TRANSLATIONS = {
     "en": {
-        "app_title": "💼 QuoteSaaS 🇱🇧",
-        "welcome": "Welcome",
-        "pro_badge": "PRO PLAN",
-        "free_badge": "FREE PLAN",
+        "app_title": "QuoteSaaS Lebanon",
+        "pro_badge": "PRO MEMBER",
+        "free_badge": "FREE MEMBER",
         "admin_link": "Admin Panel",
         "logout": "Logout",
-        "login": "Login",
-        "register": "Register",
+        "login": "Log In",
+        "register": "Create Account",
         "username": "Username",
         "password": "Password",
-        "login_btn": "Log In",
-        "register_btn": "Create Account",
-        "whish_title": "⚡ Upgrade to PRO via Whish Money",
-        "whish_desc": "Unlock Unlimited PDF Downloads and official quote exports!",
-        "whish_step1": "Send 10.00 Fresh USD via Whish Money App to:",
+        "whish_title": "Upgrade to PRO via Whish Money",
+        "whish_desc": "Unlock Unlimited PDF Downloads and official client quotes!",
+        "whish_step1": "Send $10.00 Fresh USD via Whish Money App to:",
         "whish_step2": "Enter your Whish Transfer Reference # below:",
-        "whish_ref_ph": "e.g. Ref # / Transaction ID",
-        "whish_submit": "Submit Whish Reference",
-        "create_quote_title": "Create Project Quote",
-        "client_label": "Client / Project Name:",
-        "rate_label": "Hourly Rate ($):",
-        "hours_label": "Estimated Hours:",
-        "expenses_label": "Direct Project Expenses ($):",
+        "whish_ref_ph": "e.g. Transaction Ref #",
+        "whish_submit": "Submit Verification",
+        "create_quote_title": "Create New Quote",
+        "client_label": "Client / Project Name",
+        "rate_label": "Hourly Rate ($)",
+        "hours_label": "Estimated Hours",
+        "expenses_label": "Direct Project Expenses ($)",
         "calc_btn": "Calculate & Save Quote",
-        "summary_title": "Summary for",
-        "gross_label": "Gross Quote:",
-        "expenses_summary": "Expenses:",
-        "tax_label": "Estimated Tax (20%):",
-        "takehome_label": "Estimated Take-Home:",
-        "download_pdf_btn": "📥 Download PDF Quote",
-        "pdf_locked": "🔒 PDF Downloads are locked. Upgrade to PRO via Whish Money above!",
-        "history_title": "📜 Saved Quotes History",
-        "no_history": "No quotes saved yet.",
-        "th_client": "Client",
+        "summary_title": "Quote Summary for",
+        "gross_label": "Gross Quote",
+        "expenses_summary": "Expenses",
+        "tax_label": "Estimated Tax (20%)",
+        "takehome_label": "Net Take-Home",
+        "download_pdf_btn": "Download PDF Quote",
+        "pdf_locked": "PDF Downloads locked. Upgrade to PRO via Whish Money above!",
+        "history_title": "Your Saved Quotes",
+        "no_history": "No quotes generated yet.",
+        "th_client": "Client / Project",
         "th_gross": "Gross",
         "th_expenses": "Expenses",
         "th_tax": "Tax",
-        "th_takehome": "Take-Home"
+        "th_takehome": "Net Take-Home",
+        "th_action": "Actions",
+        "stat_total_quotes": "Total Quotes",
+        "stat_total_revenue": "Total Estimated Revenue",
+        "stat_account_status": "Account Status"
     },
     "ar": {
-        "app_title": "💼 تسعير المشاريع 🇱🇧",
-        "welcome": "أهلاً بك",
-        "pro_badge": "الحساب الاحترافي PRO",
-        "free_badge": "الحساب المجاني",
+        "app_title": "تسعير المشاريع 🇱🇧",
+        "pro_badge": "حساب احترافي PRO",
+        "free_badge": "حساب مجاني",
         "admin_link": "لوحة الأدمن",
         "logout": "تسجيل الخروج",
         "login": "تسجيل الدخول",
-        "register": "إنشاء حساب جديد",
+        "register": "حساب جديد",
         "username": "اسم المستخدم",
         "password": "كلمة المرور",
-        "login_btn": "دخول",
-        "register_btn": "إنشاء الحساب",
-        "whish_title": "⚡ الترقية إلى الحساب الاحترافي عبر Whish Money",
+        "whish_title": "الترقية إلى الحساب الاحترافي عبر Whish Money",
         "whish_desc": "افتح صلاحية تحميل عروض الأسعار بصيغة PDF بدون حدود!",
         "whish_step1": "أرسل 10.00 دولار كاش (Fresh USD) عبر Whish إلى:",
         "whish_step2": "أدخل رقم المرجع (Reference #) للتحويل أدناه:",
-        "whish_ref_ph": "مثال: رقم المرجع / Transaction ID",
-        "whish_submit": "إرسال رقم المرجع لتأكيد الدفع",
-        "create_quote_title": "إنشاء عرض سعر للمشروع",
-        "client_label": "اسم العميل / المشروع:",
-        "rate_label": "سعر الساعة ($):",
-        "hours_label": "عدد الساعات المتوقعة:",
-        "expenses_label": "المصاريف المباشرة للمشروع ($):",
+        "whish_ref_ph": "رقم المرجع / Transaction ID",
+        "whish_submit": "إرسال رقم المرجع للتأكيد",
+        "create_quote_title": "إنشاء عرض سعر جديد",
+        "client_label": "اسم العميل / المشروع",
+        "rate_label": "سعر الساعة ($)",
+        "hours_label": "عدد الساعات المتوقعة",
+        "expenses_label": "المصاريف المباشرة ($)",
         "calc_btn": "حساب وحفظ عرض السعر",
         "summary_title": "ملخص عرض السعر لـ",
-        "gross_label": "إجمالي القيمة:",
-        "expenses_summary": "المصاريف:",
-        "tax_label": "الضريبة التقديرية (20%):",
-        "takehome_label": "الربح الصافي التقديري:",
-        "download_pdf_btn": "📥 تحميل عرض السعر PDF",
-        "pdf_locked": "🔒 تحميل الـ PDF مقفل. قم بالترقية عبر Whish Money أعلاه!",
-        "history_title": "📜 سجل العروض المحفوظة",
+        "gross_label": "إجمالي القيمة",
+        "expenses_summary": "المصاريف",
+        "tax_label": "الضريبة التقديرية (20%)",
+        "takehome_label": "الربح الصافي",
+        "download_pdf_btn": "تحميل عرض السعر PDF",
+        "pdf_locked": "تحميل الـ PDF مقفل. قم بالترقية عبر Whish Money أعلاه!",
+        "history_title": "سجل العروض المحفوظة",
         "no_history": "لا توجد عروض محفوظة حتى الآن.",
-        "th_client": "العميل",
+        "th_client": "العميل / المشروع",
         "th_gross": "الإجمالي",
         "th_expenses": "المصاريف",
         "th_tax": "الضريبة",
-        "th_takehome": "الصافي"
+        "th_takehome": "الصافي",
+        "th_action": "الإجراءات",
+        "stat_total_quotes": "إجمالي العروض",
+        "stat_total_revenue": "إجمالي الإيرادات المتوقعة",
+        "stat_account_status": "حالة الحساب"
     }
 }
 
 # --- UNIVERSAL DB HELPER ---
 def get_db():
     if DATABASE_URL and psycopg2:
-        # Connect to PostgreSQL on Render
         conn = psycopg2.connect(DATABASE_URL, sslmode="require")
         return conn, "pg"
     else:
-        # Connect to SQLite Locally
         conn = sqlite3.connect("quotes.db")
         return conn, "sqlite"
 
@@ -195,7 +193,7 @@ def save_quote_to_db(user_id, client, gross, expenses, tax, take_home):
 
 def get_user_quotes(user_id):
     conn, db_type = get_db()
-    cur = execute_query(conn, db_type, 'SELECT client, gross, expenses, tax, take_home FROM quotes WHERE user_id = ? ORDER BY id DESC', (user_id,))
+    cur = execute_query(conn, db_type, 'SELECT id, client, gross, expenses, tax, take_home FROM quotes WHERE user_id = ? ORDER BY id DESC', (user_id,))
     rows = cur.fetchall()
     conn.close()
     return rows
@@ -205,6 +203,19 @@ def toggle_language():
     current_lang = session.get("lang", "en")
     session["lang"] = "ar" if current_lang == "en" else "en"
     return redirect(request.referrer or url_for("home"))
+
+@app.route("/delete_quote/<int:quote_id>")
+def delete_quote(quote_id):
+    if "user_id" not in session:
+        return redirect(url_for("home"))
+    
+    conn, db_type = get_db()
+    execute_query(conn, db_type, "DELETE FROM quotes WHERE id = ? AND user_id = ?", (quote_id, session["user_id"]))
+    conn.commit()
+    conn.close()
+    
+    flash("Quote deleted successfully.", "info")
+    return redirect(url_for("home"))
 
 @app.route("/register", methods=["POST"])
 def register():
@@ -222,7 +233,7 @@ def register():
         conn.close()
         flash("Registration successful! Please log in.", "success")
     except Exception:
-        flash("Username already exists or registration failed!", "danger")
+        flash("Username already exists!", "danger")
 
     return redirect(url_for("home"))
 
@@ -314,6 +325,7 @@ def home():
     result = None
     user_quotes = []
     user_info = None
+    total_revenue = 0.0
 
     lang = session.get("lang", "en")
     t = TRANSLATIONS.get(lang, TRANSLATIONS["en"])
@@ -325,6 +337,15 @@ def home():
             return redirect(url_for("home"))
 
         user_quotes = get_user_quotes(session["user_id"])
+
+        # Calculate Analytics
+        for q in user_quotes:
+            try:
+                # Extract numerical value from formatted strings like "$1,500.00"
+                val = float(q[2].replace("$", "").replace(",", ""))
+                total_revenue += val
+            except ValueError:
+                pass
 
         if request.method == "POST":
             client_name = request.form.get("client_name")
@@ -358,6 +379,8 @@ def home():
         result=result,
         history=user_quotes,
         user=user_info,
+        total_revenue=f"${total_revenue:,.2f}",
+        total_count=len(user_quotes),
         whish_phone=YOUR_WHISH_PHONE,
         whish_name=YOUR_WHISH_NAME,
         price=PRO_PLAN_PRICE,

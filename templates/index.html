@@ -4,269 +4,325 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ t.app_title }}</title>
+    
+    <!-- Bootstrap 5 CSS (Dynamic Standard / RTL) -->
+    {% if lang == 'ar' %}
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.rtl.min.css">
+    {% else %}
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+    {% endif %}
+
+    <!-- FontAwesome 6 Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
     <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f0f2f5;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 30px 20px;
-        }
-        .nav-bar {
-            width: 100%;
-            max-width: 700px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-        .container {
-            background: white;
-            padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-            width: 100%;
-            max-width: 520px;
-            margin-bottom: 25px;
-        }
-        h2, h3 { color: #1a1a1a; margin-top: 0; text-align: center; }
-        label { font-weight: 600; font-size: 14px; color: #555; display: block; margin-top: 15px; }
-        input {
-            width: 100%;
-            padding: 10px;
-            margin-top: 5px;
-            border: 1px solid #ccc;
-            border-radius: 6px;
-            box-sizing: border-box;
-            font-size: 15px;
-        }
-        button {
-            width: 100%;
-            border: none;
-            padding: 12px;
-            margin-top: 15px;
-            border-radius: 6px;
-            font-size: 15px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-        .btn-blue { background-color: #0066ff; color: white; }
-        .btn-green { background-color: #27ae60; color: white; }
-        .btn-red { background-color: #d32f2f; color: white; }
-        .btn-danger { background-color: #e74c3c; color: white; width: auto; padding: 6px 12px; margin: 0; }
-        
-        .badge-pro { background-color: #27ae60; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
-        .badge-free { background-color: #e67e22; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
-
-        .whish-box {
-            background-color: #fff0f0;
-            border: 2px solid #d32f2f;
-            border-radius: 8px;
-            padding: 20px;
-            margin-top: 20px;
-            width: 100%;
-            max-width: 520px;
-            box-sizing: border-box;
-        }
-        .whish-box h3 { color: #d32f2f; margin-top: 0; }
-
-        .alert { padding: 12px; border-radius: 6px; margin-bottom: 15px; width: 100%; max-width: 520px; text-align: center; font-weight: bold; }
-        .alert-success { background-color: #d4edda; color: #155724; }
-        .alert-danger { background-color: #f8d7da; color: #721c24; }
-        .alert-info { background-color: #d1ecf1; color: #0c5460; }
-
-        .auth-box { display: flex; gap: 20px; }
-        .auth-box > div { flex: 1; }
-
-        .results { margin-top: 25px; padding: 15px; background-color: #eafaf1; border-left: 4px solid #2ecc71; border-radius: 4px; }
-        html[dir="rtl"] .results { border-left: none; border-right: 4px solid #2ecc71; }
-
-        .row { display: flex; justify-content: space-between; margin: 8px 0; }
-        
-        .history-card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); width: 100%; max-width: 700px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #eee; font-size: 14px; }
-        html[dir="rtl"] th, html[dir="rtl"] td { text-align: right; }
-        th { background-color: #f8f9fa; color: #444; }
+        body { background-color: #f4f6f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .navbar-brand { font-weight: 700; color: #0d6efd !important; }
+        .card { border: none; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .card-header { background-color: #ffffff; border-bottom: 1px solid #edf2f7; font-weight: 600; border-radius: 12px 12px 0 0 !important; }
+        .stat-card { border-left: 4px solid #0d6efd; }
+        html[dir="rtl"] .stat-card { border-left: none; border-right: 4px solid #0d6efd; }
+        .btn-custom { padding: 10px 20px; font-weight: 600; border-radius: 8px; }
+        .whish-alert { background: #fff5f5; border: 2px solid #dc3545; border-radius: 12px; }
     </style>
 </head>
 <body>
 
-<div class="nav-bar">
-    <h2 style="margin:0;">{{ t.app_title }}</h2>
-    
-    <div style="display: flex; align-items: center; gap: 10px;">
-        <!-- SINGLE LANGUAGE TOGGLE BUTTON -->
-        <div class="lang-switch">
-            <a href="/toggle_language" style="text-decoration: none; padding: 6px 14px; border-radius: 6px; background: #ffffff; border: 1px solid #0066ff; color: #0066ff; font-weight: bold; font-size: 14px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+<!-- NAVBAR -->
+<nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm mb-4">
+    <div class="container">
+        <a class="navbar-brand fs-4" href="/"><i class="fa-solid me-2"></i>{{ t.app_title }}</a>
+        
+        <div class="d-flex align-items-center gap-2">
+            <!-- Language Switcher -->
+            <a href="/toggle_language" class="btn btn-outline-primary btn-sm rounded-pill px-3">
                 {% if lang == 'en' %}
                     🇱🇧 العربية
                 {% else %}
                     🇬🇧 English
                 {% endif %}
             </a>
+
+            {% if session.get('username') %}
+                <span class="ms-2 me-2 d-none d-md-inline">
+                    <strong>{{ session.username }}</strong>
+                    {% if user and user[2] == 1 %}
+                        <span class="badge bg-success ms-1">{{ t.pro_badge }}</span>
+                    {% else %}
+                        <span class="badge bg-warning text-dark ms-1">{{ t.free_badge }}</span>
+                    {% endif %}
+                </span>
+
+                {% if user and user[3] == 1 %}
+                    <a href="/admin" class="btn btn-sm btn-primary"><i class="fa-solid fa-user-shield me-1"></i>{{ t.admin_link }}</a>
+                {% endif %}
+
+                <a href="/logout" class="btn btn-sm btn-outline-danger"><i class="fa-solid fa-right-from-bracket"></i></a>
+            {% endif %}
         </div>
+    </div>
+</nav>
 
-        {% if session.get('username') %}
-            <div>
-                <span><strong>{{ session.username }}</strong></span>
-                {% if user and user['is_pro'] == 1 %}
-                    <span class="badge-pro">{{ t.pro_badge }}</span>
-                {% else %}
-                    <span class="badge-free">{{ t.free_badge }}</span>
-                {% endif %}
-                
-                {% if user and user['is_admin'] == 1 %}
-                    <a href="/admin"><button class="btn-blue" style="width:auto; padding:6px 10px; margin:0;">{{ t.admin_link }}</button></a>
-                {% endif %}
+<div class="container pb-5">
 
-                <a href="/logout"><button class="btn-danger">{{ t.logout }}</button></a>
+    <!-- FLASH MESSAGES -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    {% if not session.get('user_id') %}
+
+    <!-- VISITORS LOGIN / REGISTER -->
+    <div class="row justify-content-center my-5">
+        <div class="col-md-5 mb-4">
+            <div class="card p-4">
+                <h4 class="text-center mb-4"><i class="fa-solid fa-right-to-bracket text-primary me-2"></i>{{ t.login }}</h4>
+                <form action="/login" method="POST">
+                    <div class="mb-3">
+                        <label class="form-label">{{ t.username }}</label>
+                        <input type="text" name="username" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ t.password }}</label>
+                        <input type="password" name="password" class="form-control" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100 btn-custom mt-2">{{ t.login_btn }}</button>
+                </form>
             </div>
-        {% endif %}
-    </div>
-</div>
-
-<!-- FLASH MESSAGES -->
-{% with messages = get_flashed_messages(with_categories=true) %}
-  {% if messages %}
-    {% for category, message in messages %}
-      <div class="alert alert-{{ category }}">{{ message }}</div>
-    {% endfor %}
-  {% endif %}
-{% endwith %}
-
-{% if not session.get('user_id') %}
-
-<!-- LOGIN / REGISTER -->
-<div class="container">
-    <div class="auth-box">
-        <div>
-            <h3>{{ t.login }}</h3>
-            <form action="/login" method="POST">
-                <label>{{ t.username }}</label>
-                <input type="text" name="username" required>
-                <label>{{ t.password }}</label>
-                <input type="password" name="password" required>
-                <button type="submit" class="btn-blue">{{ t.login_btn }}</button>
-            </form>
-        </div>
-        <div style="border-left: 1px solid #eee; padding-left: 20px;">
-            <h3>{{ t.register }}</h3>
-            <form action="/register" method="POST">
-                <label>{{ t.username }}</label>
-                <input type="text" name="username" required>
-                <label>{{ t.password }}</label>
-                <input type="password" name="password" required>
-                <button type="submit" class="btn-green">{{ t.register_btn }}</button>
-            </form>
-        </div>
-    </div>
-</div>
-
-{% else %}
-
-<!-- WHISH MONEY PRO UPGRADE BOX -->
-{% if user and user['is_pro'] == 0 %}
-<div class="whish-box">
-    <h3>{{ t.whish_title }}</h3>
-    <p>{{ t.whish_desc }}</p>
-    <hr>
-    <p><strong>Step 1:</strong> {{ t.whish_step1 }}</p>
-    <ul>
-        <li><strong>Whish Phone:</strong> <code>{{ whish_phone }}</code></li>
-        <li><strong>Account Name:</strong> {{ whish_name }}</li>
-    </ul>
-    <p><strong>Step 2:</strong> {{ t.whish_step2 }}</p>
-    
-    <form action="/submit_whish_payment" method="POST">
-        <input type="text" name="whish_ref" placeholder="{{ t.whish_ref_ph }}" required>
-        <button type="submit" class="btn-red">{{ t.whish_submit }}</button>
-    </form>
-</div>
-{% endif %}
-
-<!-- CALCULATOR -->
-<div class="container">
-    <h3>{{ t.create_quote_title }}</h3>
-    
-    <form method="POST">
-        <label>{{ t.client_label }}</label>
-        <input type="text" name="client_name" placeholder="e.g. Acme Corp Redesign" required>
-
-        <label>{{ t.rate_label }}</label>
-        <input type="number" step="any" name="hourly_rate" placeholder="e.g. 50" required>
-
-        <label>{{ t.hours_label }}</label>
-        <input type="number" step="any" name="hours" placeholder="e.g. 30" required>
-
-        <label>{{ t.expenses_label }}</label>
-        <input type="number" step="any" name="expenses" placeholder="e.g. 100" value="0">
-
-        <button type="submit" class="btn-blue">{{ t.calc_btn }}</button>
-    </form>
-
-    {% if result %}
-    <div class="results">
-        <h3 style="color: #27ae60;">{{ t.summary_title }} {{ result.client }}</h3>
-        <div class="row"><span>{{ t.gross_label }}</span> <strong>{{ result.gross }}</strong></div>
-        <div class="row"><span>{{ t.expenses_summary }}</span> <span>{{ result.expenses }}</span></div>
-        <div class="row"><span>{{ t.tax_label }}</span> <span>{{ result.tax }}</span></div>
-        <hr>
-        <div class="row" style="font-size: 1.1em; color: #27ae60;">
-            <span>{{ t.takehome_label }}</span> <strong>{{ result.take_home }}</strong>
         </div>
 
-        {% if user and user['is_pro'] == 1 %}
-        <form action="/download_pdf" method="POST">
-            <input type="hidden" name="client" value="{{ result.client }}">
-            <input type="hidden" name="gross" value="{{ result.gross }}">
-            <input type="hidden" name="expenses" value="{{ result.expenses }}">
-            <input type="hidden" name="tax" value="{{ result.tax }}">
-            <input type="hidden" name="take_home" value="{{ result.take_home }}">
-            <button type="submit" class="btn-green">{{ t.download_pdf_btn }}</button>
-        </form>
-        {% else %}
-        <p style="text-align: center; color: #d32f2f; font-weight: bold; margin-top: 15px;">
-            {{ t.pdf_locked }}
-        </p>
-        {% endif %}
+        <div class="col-md-5">
+            <div class="card p-4">
+                <h4 class="text-center mb-4"><i class="fa-solid fa-user-plus text-success me-2"></i>{{ t.register }}</h4>
+                <form action="/register" method="POST">
+                    <div class="mb-3">
+                        <label class="form-label">{{ t.username }}</label>
+                        <input type="text" name="username" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ t.password }}</label>
+                        <input type="password" name="password" class="form-control" required>
+                    </div>
+                    <button type="submit" class="btn btn-success w-100 btn-custom mt-2">{{ t.register_btn }}</button>
+                </form>
+            </div>
+        </div>
     </div>
-    {% endif %}
-</div>
 
-<!-- HISTORY -->
-<div class="history-card">
-    <h3>{{ t.history_title }}</h3>
-    {% if history %}
-    <table>
-        <thead>
-            <tr>
-                <th>{{ t.th_client }}</th>
-                <th>{{ t.th_gross }}</th>
-                <th>{{ t.th_expenses }}</th>
-                <th>{{ t.th_tax }}</th>
-                <th>{{ t.th_takehome }}</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for item in history %}
-            <tr>
-                <td><strong>{{ item[0] }}</strong></td>
-                <td>{{ item[1] }}</td>
-                <td>{{ item[2] }}</td>
-                <td>{{ item[3] }}</td>
-                <td style="color: #27ae60; font-weight: bold;">{{ item[4] }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
     {% else %}
-    <p style="text-align: center; color: #888;">{{ t.no_history }}</p>
+
+    <!-- USER DASHBOARD ANALYTICS CARDS -->
+    <div class="row mb-4">
+        <div class="col-md-4 mb-3">
+            <div class="card p-3 stat-card">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-muted small">{{ t.stat_total_quotes }}</div>
+                        <h3 class="fw-bold mb-0">{{ total_count }}</h3>
+                    </div>
+                    <i class="fa-solid fa-file-invoice fa-2x text-primary opacity-50"></i>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-3">
+            <div class="card p-3 stat-card style-success" style="border-color: #198754;">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-muted small">{{ t.stat_total_revenue }}</div>
+                        <h3 class="fw-bold mb-0 text-success">{{ total_revenue }}</h3>
+                    </div>
+                    <i class="fa-solid fa-chart-line fa-2x text-success opacity-50"></i>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-3">
+            <div class="card p-3 stat-card style-warning" style="border-color: #ffc107;">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-muted small">{{ t.stat_account_status }}</div>
+                        <h5 class="fw-bold mb-0 mt-1">
+                            {% if user and user[2] == 1 %}
+                                <span class="text-success"><i class="fa-solid fa-circle-check me-1"></i>PRO Active</span>
+                            {% else %}
+                                <span class="text-warning"><i class="fa-solid fa-circle-pause me-1"></i>Free Plan</span>
+                            {% endif %}
+                        </h5>
+                    </div>
+                    <i class="fa-solid fa-gem fa-2x text-warning opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- WHISH MONEY UPGRADE NOTICE (FOR FREE MEMBERS) -->
+    {% if user and user[2] == 0 %}
+    <div class="card p-4 mb-4 whish-alert">
+        <h4 class="text-danger fw-bold"><i class="fa-solid fa-bolt me-2"></i>{{ t.whish_title }}</h4>
+        <p class="text-secondary">{{ t.whish_desc }}</p>
+        <hr>
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <h6>Step 1: Send <strong>{{ price }}</strong> via Whish Money:</h6>
+                <ul class="list-unstyled bg-white p-3 rounded border">
+                    <li><i class="fa-solid fa-phone text-danger me-2"></i><strong>Whish Phone:</strong> <code>{{ whish_phone }}</code></li>
+                    <li><i class="fa-solid fa-user text-danger me-2"></i><strong>Account Name:</strong> {{ whish_name }}</li>
+                </ul>
+            </div>
+            <div class="col-md-6">
+                <h6>Step 2: Enter Transaction Reference #:</h6>
+                <form action="/submit_whish_payment" method="POST">
+                    <input type="text" name="whish_ref" class="form-control mb-2" placeholder="{{ t.whish_ref_ph }}" required>
+                    <button type="submit" class="btn btn-danger w-100"><i class="fa-solid fa-paper-plane me-1"></i>{{ t.whish_submit }}</button>
+                </form>
+            </div>
+        </div>
+    </div>
     {% endif %}
+
+    <div class="row">
+        <!-- QUOTE GENERATOR FORM -->
+        <div class="col-lg-5 mb-4">
+            <div class="card">
+                <div class="card-header py-3">
+                    <i class="fa-solid fa-calculator text-primary me-2"></i>{{ t.create_quote_title }}
+                </div>
+                <div class="card-body p-4">
+                    <form method="POST">
+                        <div class="mb-3">
+                            <label class="form-label">{{ t.client_label }}</label>
+                            <input type="text" name="client_name" class="form-control" placeholder="e.g. Acme Redesign" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">{{ t.rate_label }}</label>
+                            <input type="number" step="any" name="hourly_rate" class="form-control" placeholder="e.g. 50" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">{{ t.hours_label }}</label>
+                            <input type="number" step="any" name="hours" class="form-control" placeholder="e.g. 30" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">{{ t.expenses_label }}</label>
+                            <input type="number" step="any" name="expenses" class="form-control" placeholder="e.g. 100" value="0">
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100 btn-custom"><i class="fa-solid fa-floppy-disk me-1"></i>{{ t.calc_btn }}</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- QUOTE RESULT & PREVIEW -->
+        <div class="col-lg-7 mb-4">
+            {% if result %}
+            <div class="card border-success mb-4">
+                <div class="card-header bg-success text-white py-3">
+                    <i class="fa-solid fa-file-contract me-2"></i>{{ t.summary_title }} {{ result.client }}
+                </div>
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between border-bottom py-2">
+                        <span>{{ t.gross_label }}:</span>
+                        <strong>{{ result.gross }}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between border-bottom py-2">
+                        <span>{{ t.expenses_summary }}:</span>
+                        <span class="text-danger">-{{ result.expenses }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between border-bottom py-2">
+                        <span>{{ t.tax_label }}:</span>
+                        <span class="text-danger">-{{ result.tax }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between pt-3 fs-5 text-success fw-bold">
+                        <span>{{ t.takehome_label }}:</span>
+                        <span>{{ result.take_home }}</span>
+                    </div>
+
+                    <div class="mt-4">
+                        {% if user and user[2] == 1 %}
+                        <form action="/download_pdf" method="POST">
+                            <input type="hidden" name="client" value="{{ result.client }}">
+                            <input type="hidden" name="gross" value="{{ result.gross }}">
+                            <input type="hidden" name="expenses" value="{{ result.expenses }}">
+                            <input type="hidden" name="tax" value="{{ result.tax }}">
+                            <input type="hidden" name="take_home" value="{{ result.take_home }}">
+                            <button type="submit" class="btn btn-success w-100 btn-custom"><i class="fa-solid fa-file-pdf me-2"></i>{{ t.download_pdf_btn }}</button>
+                        </form>
+                        {% else %}
+                        <div class="alert alert-warning text-center mb-0" role="alert">
+                            <i class="fa-solid fa-lock me-2"></i>{{ t.pdf_locked }}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- SAVED QUOTES HISTORY TABLE -->
+            <div class="card">
+                <div class="card-header py-3">
+                    <i class="fa-solid fa-clock-rotate-left text-primary me-2"></i>{{ t.history_title }}
+                </div>
+                <div class="card-body p-0">
+                    {% if history %}
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>{{ t.th_client }}</th>
+                                    <th>{{ t.th_gross }}</th>
+                                    <th>{{ t.th_takehome }}</th>
+                                    <th class="text-end">{{ t.th_action }}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in history %}
+                                <tr>
+                                    <td><strong>{{ item[1] }}</strong></td>
+                                    <td>{{ item[2] }}</td>
+                                    <td class="text-success fw-bold">{{ item[5] }}</td>
+                                    <td class="text-end">
+                                        {% if user and user[2] == 1 %}
+                                        <form action="/download_pdf" method="POST" class="d-inline">
+                                            <input type="hidden" name="client" value="{{ item[1] }}">
+                                            <input type="hidden" name="gross" value="{{ item[2] }}">
+                                            <input type="hidden" name="expenses" value="{{ item[3] }}">
+                                            <input type="hidden" name="tax" value="{{ item[4] }}">
+                                            <input type="hidden" name="take_home" value="{{ item[5] }}">
+                                            <button type="submit" class="btn btn-sm btn-outline-success" title="Download PDF"><i class="fa-solid fa-download"></i></button>
+                                        </form>
+                                        {% endif %}
+                                        
+                                        <a href="/delete_quote/{{ item[0] }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this quote?');"><i class="fa-solid fa-trash"></i></a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="p-4 text-center text-muted">
+                        <i class="fa-solid fa-folder-open fa-2x mb-2 opacity-50"></i>
+                        <p class="mb-0">{{ t.no_history }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% endif %}
+
 </div>
 
-{% endif %}
+<!-- Bootstrap 5 JS Bundle -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
 </body>
 </html>
