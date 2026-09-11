@@ -13,23 +13,32 @@ YOUR_WHISH_PHONE = "+961 70 041 203"  # 👈 REPLACE WITH YOUR REAL WHISH PHONE 
 YOUR_WHISH_NAME = "Salem Damaj"        # 👈 REPLACE WITH YOUR WHISH ACCOUNT NAME
 PRO_PLAN_PRICE = "$10.00 Fresh USD"
 
-# --- DATABASE SETUP ---
+# --- DATABASE SETUP WITH MIGRATIONS ---
 def init_db():
     conn = sqlite3.connect("quotes.db")
     cursor = conn.cursor()
     
-    # Users table (added is_pro column)
+    # 1. Base Users table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL,
-            is_pro INTEGER DEFAULT 0,
-            is_admin INTEGER DEFAULT 0
+            password TEXT NOT NULL
         )
     ''')
     
-    # Quotes table
+    # 2. Add new columns safely if upgrading existing database
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN is_pro INTEGER DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass # Column already exists
+
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass # Column already exists
+
+    # 3. Quotes table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS quotes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -43,7 +52,7 @@ def init_db():
         )
     ''')
 
-    # Whish Payments Table
+    # 4. Whish Payments Table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS payments (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -57,10 +66,10 @@ def init_db():
         )
     ''')
 
-    # Create default Admin account if not exists
+    # 5. Create default Admin account if not exists
     cursor.execute("SELECT * FROM users WHERE username = 'admin'")
     if not cursor.fetchone():
-        admin_pw = generate_password_hash("admin123")  # Change password after first login!
+        admin_pw = generate_password_hash("admin123")
         cursor.execute("INSERT INTO users (username, password, is_pro, is_admin) VALUES ('admin', ?, 1, 1)", (admin_pw,))
 
     conn.commit()
