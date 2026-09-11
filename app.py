@@ -2,12 +2,13 @@ from flask import Flask, render_template, request, redirect, url_for, session, s
 from werkzeug.security import generate_password_hash, check_password_hash
 from fpdf import FPDF
 import io
+import importlib
 import os
 import sqlite3
 from datetime import datetime
 
 try:
-    import psycopg2
+    psycopg2 = importlib.import_module("psycopg2")
 except ImportError:
     psycopg2 = None
 
