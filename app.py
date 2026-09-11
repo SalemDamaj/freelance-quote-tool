@@ -3,17 +3,99 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from fpdf import FPDF
 import io
 import sqlite3
-import os
 from datetime import datetime
 
 app = Flask(__name__)
 app.secret_key = "super_secret_saas_key_change_in_production"
 
-YOUR_WHISH_PHONE = "+961 70 041 203"
-YOUR_WHISH_NAME = "Salem Damaj"
+YOUR_WHISH_PHONE = "+961 70 000 000"  # Replace with your number
+YOUR_WHISH_NAME = "Salem Damaj"        # Replace with your name
 PRO_PLAN_PRICE = "$10.00 Fresh USD"
-
 DB_FILE = "quotes.db"
+
+# --- TRANSLATION DICTIONARIES ---
+TRANSLATIONS = {
+    "en": {
+        "app_title": "💼 QuoteSaaS 🇱🇧",
+        "welcome": "Welcome",
+        "pro_badge": "PRO PLAN",
+        "free_badge": "FREE PLAN",
+        "admin_link": "Admin Panel",
+        "logout": "Logout",
+        "login": "Login",
+        "register": "Register",
+        "username": "Username",
+        "password": "Password",
+        "login_btn": "Log In",
+        "register_btn": "Create Account",
+        "whish_title": "⚡ Upgrade to PRO via Whish Money",
+        "whish_desc": "Unlock Unlimited PDF Downloads and official quote exports!",
+        "whish_step1": "Send 10.00 Fresh USD via Whish Money App to:",
+        "whish_step2": "Enter your Whish Transfer Reference # below:",
+        "whish_ref_ph": "e.g. Ref # / Transaction ID",
+        "whish_submit": "Submit Whish Reference",
+        "create_quote_title": "Create Project Quote",
+        "client_label": "Client / Project Name:",
+        "rate_label": "Hourly Rate ($):",
+        "hours_label": "Estimated Hours:",
+        "expenses_label": "Direct Project Expenses ($):",
+        "calc_btn": "Calculate & Save Quote",
+        "summary_title": "Summary for",
+        "gross_label": "Gross Quote:",
+        "expenses_summary": "Expenses:",
+        "tax_label": "Estimated Tax (20%):",
+        "takehome_label": "Estimated Take-Home:",
+        "download_pdf_btn": "📥 Download PDF Quote",
+        "pdf_locked": "🔒 PDF Downloads are locked. Upgrade to PRO via Whish Money above!",
+        "history_title": "📜 Saved Quotes History",
+        "no_history": "No quotes saved yet.",
+        "th_client": "Client",
+        "th_gross": "Gross",
+        "th_expenses": "Expenses",
+        "th_tax": "Tax",
+        "th_takehome": "Take-Home"
+    },
+    "ar": {
+        "app_title": "💼 تسعير المشاريع 🇱🇧",
+        "welcome": "أهلاً بك",
+        "pro_badge": "الحساب الاحترافي PRO",
+        "free_badge": "الحساب المجاني",
+        "admin_link": "لوحة الأدمن",
+        "logout": "تسجيل الخروج",
+        "login": "تسجيل الدخول",
+        "register": "إنشاء حساب جديد",
+        "username": "اسم المستخدم",
+        "password": "كلمة المرور",
+        "login_btn": "دخول",
+        "register_btn": "إنشاء الحساب",
+        "whish_title": "⚡ الترقية إلى الحساب الاحترافي عبر Whish Money",
+        "whish_desc": "افتح صلاحية تحميل عروض الأسعار بصيغة PDF بدون حدود!",
+        "whish_step1": "أرسل 10.00 دولار كاش (Fresh USD) عبر Whish إلى:",
+        "whish_step2": "أدخل رقم المرجع (Reference #) للتحويل أدناه:",
+        "whish_ref_ph": "مثال: رقم المرجع / Transaction ID",
+        "whish_submit": "إرسال رقم المرجع لتأكيد الدفع",
+        "create_quote_title": "إنشاء عرض سعر للمشروع",
+        "client_label": "اسم العميل / المشروع:",
+        "rate_label": "سعر الساعة ($):",
+        "hours_label": "عدد الساعات المتوقعة:",
+        "expenses_label": "المصاريف المباشرة للمشروع ($):",
+        "calc_btn": "حساب وحفظ عرض السعر",
+        "summary_title": "ملخص عرض السعر لـ",
+        "gross_label": "إجمالي القيمة:",
+        "expenses_summary": "المصاريف:",
+        "tax_label": "الضريبة التقديرية (20%):",
+        "takehome_label": "الربح الصافي التقديري:",
+        "download_pdf_btn": "📥 تحميل عرض السعر PDF",
+        "pdf_locked": "🔒 تحميل الـ PDF مقفل. قم بالترقية عبر Whish Money أعلاه!",
+        "history_title": "📜 سجل العروض المحفوظة",
+        "no_history": "لا توجد عروض محفوظة حتى الآن.",
+        "th_client": "العميل",
+        "th_gross": "الإجمالي",
+        "th_expenses": "المصاريف",
+        "th_tax": "الضريبة",
+        "th_takehome": "الصافي"
+    }
+}
 
 def get_db_connection():
     conn = sqlite3.connect(DB_FILE)
@@ -23,7 +105,6 @@ def get_db_connection():
 def init_db():
     conn = get_db_connection()
     cursor = conn.cursor()
-    
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -33,7 +114,6 @@ def init_db():
             is_admin INTEGER DEFAULT 0
         )
     ''')
-    
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS quotes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -45,7 +125,6 @@ def init_db():
             take_home TEXT
         )
     ''')
-
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS payments (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -57,17 +136,13 @@ def init_db():
             created_at TEXT NOT NULL
         )
     ''')
-
-    # Re-create admin account
     cursor.execute("SELECT * FROM users WHERE username = 'admin'")
     if not cursor.fetchone():
         admin_pw = generate_password_hash("admin123")
         cursor.execute("INSERT INTO users (username, password, is_pro, is_admin) VALUES ('admin', ?, 1, 1)", (admin_pw,))
-
     conn.commit()
     conn.close()
 
-# Initialize DB safely
 init_db()
 
 def get_user_by_id(user_id):
@@ -99,17 +174,23 @@ def get_user_quotes(user_id):
     conn.close()
     return rows
 
+# --- LANGUAGE SWITCH ROUTE ---
+@app.route("/set_language/<lang>")
+def set_language(lang):
+    if lang in ["en", "ar"]:
+        session["lang"] = lang
+    return redirect(request.referrer or url_for("home"))
+
+# --- AUTH ROUTES ---
 @app.route("/register", methods=["POST"])
 def register():
     username = request.form.get("username", "").strip().lower()
     password = request.form.get("password", "")
-    
     if not username or not password:
         flash("Username and password required!", "danger")
         return redirect(url_for("home"))
 
     hashed_pw = generate_password_hash(password)
-
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -119,8 +200,6 @@ def register():
         flash("Registration successful! Please log in.", "success")
     except sqlite3.IntegrityError:
         flash("Username already exists!", "danger")
-    except Exception as e:
-        flash(f"Error: {str(e)}", "danger")
 
     return redirect(url_for("home"))
 
@@ -217,6 +296,10 @@ def home():
     user_quotes = []
     user_info = None
 
+    # Determine language
+    lang = session.get("lang", "en")
+    t = TRANSLATIONS.get(lang, TRANSLATIONS["en"])
+
     if "user_id" in session:
         user_info = get_user_by_id(session["user_id"])
         if not user_info:
@@ -259,7 +342,9 @@ def home():
         user=user_info,
         whish_phone=YOUR_WHISH_PHONE,
         whish_name=YOUR_WHISH_NAME,
-        price=PRO_PLAN_PRICE
+        price=PRO_PLAN_PRICE,
+        t=t,
+        lang=lang
     )
 
 @app.route("/download_pdf", methods=["POST"])
@@ -270,7 +355,7 @@ def download_pdf():
 
     user_info = get_user_by_id(session["user_id"])
     if not user_info or user_info["is_pro"] != 1:
-        flash("PDF Export is a PRO Feature! Upgrade via Whish Money below.", "danger")
+        flash("PDF Export is a PRO Feature!", "danger")
         return redirect(url_for("home"))
 
     client = request.form.get("client")
